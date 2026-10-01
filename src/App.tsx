@@ -8,8 +8,11 @@ import Hasher from './Hasher';
 import AdBlock from './AdBlock';
 import PartnerCard from './PartnerCard';
 import SEOContent from './SEOContent';
+import PasswordGenerator from './PasswordGenerator';
+import PasswordChecker from './PasswordChecker';
+import PassphraseGenerator from './PassphraseGenerator';
 
-type Tool = 'compress' | 'metadata' | 'encrypt' | 'hash' | null;
+type Tool = 'compress' | 'metadata' | 'encrypt' | 'hash' | 'password' | 'checker' | 'passphrase' | null;
 
 function App() {
   const [selectedTool, setSelectedTool] = useState<Tool>(null);
@@ -20,8 +23,11 @@ function App() {
     { id: 'compress' as Tool, icon: '🗜️', title: 'Сжатие', desc: 'JPG/PNG/WebP' },
     { id: 'metadata' as Tool, icon: '🧹', title: 'Очистка метаданных', desc: 'Удаление EXIF, GPS' },
     { id: 'encrypt' as Tool, icon: '🔒', title: 'Шифрование', desc: 'Пароль + HTML-контейнер' },
-    { id: 'hash' as Tool, icon: '#️⃣', title: 'Генератор хешей', desc: 'MD5, SHA-1, SHA-256, SHA-512' },
-  ];
+    { id: 'hash' as Tool, icon: '#️', title: 'Генератор хешей', desc: 'MD5, SHA-1, SHA-256, SHA-512' },
+    { id: 'password' as Tool, icon: '🔐', title: 'Генератор паролей', desc: 'Надёжные пароли' },
+    { id: 'checker' as Tool, icon: '🔍', title: 'Проверка утечек', desc: 'Have I Been Pwned' },
+    { id: 'passphrase' as Tool, icon: '🎲', title: 'Passphrase', desc: 'Diceware метод' },
+];
 
   const partners = [
     {
@@ -142,6 +148,9 @@ function App() {
           {selectedTool === 'metadata' && <MetadataCleaner files={files} />}
           {selectedTool === 'encrypt' && <Encryptor files={files} />}
           {selectedTool === 'hash' && <Hasher files={files} />}
+          {selectedTool === 'password' && <PasswordGenerator />}
+          {selectedTool === 'checker' && <PasswordChecker />}
+          {selectedTool === 'passphrase' && <PassphraseGenerator />}
         </div>
 
         {/* Рекламный блок под результатами */}
