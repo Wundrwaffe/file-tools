@@ -68,7 +68,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             <h2 className="text-xl font-semibold text-gray-800 mb-3">5. Контакты</h2>
             <p className="text-gray-700 leading-relaxed">
               Если у вас есть вопросы относительно этой Политики конфиденциальности, вы можете связаться с нами по адресу: 
-              <a href="mailto:support@yoursecure.space" className="text-blue-600 hover:underline ml-1">support@yoursecure.space</a>
+              <a href="mailto:Normotron.ai@yandex.ru" className="text-blue-600 hover:underline ml-1">Normotron.ai@yandex.ru</a>
             </p>
           </section>
         </article>
