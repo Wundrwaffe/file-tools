@@ -53,7 +53,7 @@ function App() {
 
         {/* Рекламный баннер сверху */}
         <div className="max-w-2xl mx-auto w-full px-4">
-          <AdBlock title="📢 Рекламное место" description="Google Ads / Яндекс.Директ" variant="banner" />
+          <AdBlock blockId="R-A-20154437-1" variant="banner" />
         </div>
 
         <main className="flex-1 px-4 pb-12">
@@ -81,11 +81,10 @@ function App() {
             </div>
           </div>
 
-          {/* SEO контент для поисковиков */}
+          {/* SEO контент */}
           <SEOContent />
         </main>
 
-        {/* Футер */}
         <footer className="bg-gray-800 text-gray-300 py-8 px-4 mt-auto">
           <div className="max-w-4xl mx-auto text-center">
             <p className="mb-2">© 2026 Локальные инструменты для файлов</p>
@@ -132,15 +131,14 @@ function App() {
           {selectedTool === 'hash' && <Hasher files={files} />}
         </div>
 
-        {/* Рекламный блок под результатами обработки — главное место для РСЯ */}
+        {/* Рекламный блок под результатами */}
         {files.length > 0 && (
           <div className="max-w-3xl mx-auto mt-8">
-            <AdBlock title="📢 Рекламное место" description="Яндекс РСЯ" variant="banner" />
+            <AdBlock blockId="R-A-20154437-1" variant="banner" />
           </div>
         )}
       </div>
 
-      {/* Футер */}
       <footer className="bg-gray-800 text-gray-300 py-6 px-4 mt-auto">
         <div className="max-w-4xl mx-auto text-center text-sm">
           <p>© 2026 Локальные инструменты для файлов</p>
