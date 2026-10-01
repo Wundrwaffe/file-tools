@@ -1,27 +1,40 @@
+import { useEffect } from 'react';
 
 interface AdBlockProps {
-  title?: string;
-  description?: string;
+  blockId?: string; // ID блока от Яндекса
   variant?: 'banner' | 'sidebar' | 'footer';
 }
 
 export default function AdBlock({ 
-  title = 'Рекламное место', 
-  description = 'Здесь может быть ваша реклама',
+  blockId = 'R-A-20154437-1', // Твой ID блока
   variant = 'banner' 
 }: AdBlockProps) {
+  useEffect(() => {
+    // @ts-ignore
+    if (window.yaContextCb) {
+      // @ts-ignore
+      window.yaContextCb.push(() => {
+        // @ts-ignore
+        if (window.Ya && window.Ya.Context && window.Ya.Context.AdvManager) {
+          // @ts-ignore
+          window.Ya.Context.AdvManager.render({
+            renderTo: `yandex_rtb_${blockId}`,
+            blockId: blockId
+          });
+        }
+      });
+    }
+  }, [blockId]);
+
   const sizeClasses = {
-    banner: 'w-full h-32',
-    sidebar: 'w-full h-64',
-    footer: 'w-full h-24'
+    banner: 'w-full min-h-[250px]',
+    sidebar: 'w-full min-h-[400px]',
+    footer: 'w-full min-h-[90px]'
   };
 
   return (
-    <div className={`${sizeClasses[variant]} bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center my-4`}>
-      <div className="text-center">
-        <p className="text-gray-500 font-semibold">{title}</p>
-        <p className="text-gray-400 text-sm">{description}</p>
-      </div>
+    <div className={`${sizeClasses[variant]} my-4 bg-gray-50 rounded-lg overflow-hidden`}>
+      <div id={`yandex_rtb_${blockId}`}></div>
     </div>
   );
 }
