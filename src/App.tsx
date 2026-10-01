@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PrivacyPolicy from './PrivacyPolicy';
 import DropZone from './DropZone';
 import Compressor from './Compressor';
 import MetadataCleaner from './MetadataCleaner';
@@ -13,11 +14,12 @@ type Tool = 'compress' | 'metadata' | 'encrypt' | 'hash' | null;
 function App() {
   const [selectedTool, setSelectedTool] = useState<Tool>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const tools = [
     { id: 'compress' as Tool, icon: '🗜️', title: 'Сжатие', desc: 'JPG/PNG/WebP' },
     { id: 'metadata' as Tool, icon: '🧹', title: 'Очистка метаданных', desc: 'Удаление EXIF, GPS' },
-    { id: 'encrypt' as Tool, icon: '', title: 'Шифрование', desc: 'Пароль + HTML-контейнер' },
+    { id: 'encrypt' as Tool, icon: '🔒', title: 'Шифрование', desc: 'Пароль + HTML-контейнер' },
     { id: 'hash' as Tool, icon: '#️⃣', title: 'Генератор хешей', desc: 'MD5, SHA-1, SHA-256, SHA-512' },
   ];
 
@@ -42,7 +44,12 @@ function App() {
     }
   ];
 
-  // Главная страница
+  // 1. Показываем Политику конфиденциальности, если она активна
+  if (showPrivacy) {
+    return <PrivacyPolicy onBack={() => setShowPrivacy(false)} />;
+  }
+
+  // 2. Главная страница
   if (!selectedTool) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -92,7 +99,13 @@ function App() {
               Все операции выполняются в вашем браузере. Мы не сохраняем и не передаём ваши файлы.
             </p>
             <div className="mt-4 flex justify-center gap-6 text-sm flex-wrap">
-              <a href="#" className="hover:text-white transition-colors">Политика конфиденциальности</a>
+              {/* Рабочая кнопка вместо ссылки */}
+              <button 
+                onClick={() => setShowPrivacy(true)} 
+                className="hover:text-white transition-colors bg-transparent border-none p-0 cursor-pointer font-inherit text-sm"
+              >
+                Политика конфиденциальности
+              </button>
               <a href="#" className="hover:text-white transition-colors">Условия использования</a>
               <a href="#" className="hover:text-white transition-colors">Контакты</a>
             </div>
@@ -102,7 +115,7 @@ function App() {
     );
   }
 
-  // Страница инструмента
+  // 3. Страница инструмента
   const currentTool = tools.find(t => t.id === selectedTool);
 
   return (
@@ -143,6 +156,14 @@ function App() {
         <div className="max-w-4xl mx-auto text-center text-sm">
           <p>© 2026 Локальные инструменты для файлов</p>
           <p className="text-gray-500 mt-1">Все операции выполняются в вашем браузере</p>
+          <div className="mt-3">
+            <button 
+              onClick={() => setShowPrivacy(true)} 
+              className="hover:text-white transition-colors bg-transparent border-none p-0 cursor-pointer font-inherit text-sm underline"
+            >
+              Политика конфиденциальности
+            </button>
+          </div>
         </div>
       </footer>
     </div>
