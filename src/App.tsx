@@ -60,9 +60,15 @@ function App() {
     return (
       <div className="min-h-screen flex flex-col">
         <header className="text-center py-12 px-4">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Локальные инструменты для файлов</h1>
-          <p className="text-gray-600 text-lg">Всё работает локально в браузере. Ваши файлы никуда не загружаются.</p>
-        </header>
+  <div className="mb-4">
+    <span className="text-5xl">🔐</span>
+  </div>
+  <h1 className="text-5xl font-bold text-gray-900 mb-2">
+    Your<span className="text-blue-600">Secure</span>
+  </h1>
+  <p className="mb-2">© 2026 <strong>YourSecure</strong></p>
+  <p className="text-gray-500 text-base">Всё работает в браузере. Ваши файлы никуда не загружаются.</p>
+</header>
 
         {/* Рекламный баннер сверху */}
         <div className="max-w-2xl mx-auto w-full px-4">
@@ -100,7 +106,7 @@ function App() {
 
         <footer className="bg-gray-800 text-gray-300 py-8 px-4 mt-auto">
           <div className="max-w-4xl mx-auto text-center">
-            <p className="mb-2">© 2026 Локальные инструменты для файлов</p>
+            <p className="mb-2">© 2026 <strong>YourSecure</strong></p>
             <p className="text-sm text-gray-500">
               Все операции выполняются в вашем браузере. Мы не сохраняем и не передаём ваши файлы.
             </p>

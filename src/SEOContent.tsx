@@ -40,6 +40,36 @@ export default function SEOContent() {
         </div>
       </div>
 
+<section className="mt-12">
+  <h2 className="text-2xl font-bold text-gray-800 mb-4">🔐 Генератор надёжных паролей</h2>
+  <p className="text-gray-700 leading-relaxed mb-3">
+    Создавайте уникальные пароли длиной от 8 до 64 символов с настройкой состава: 
+    заглавные и строчные буквы, цифры, спецсимволы. Встроенный индикатор надёжности 
+    показывает энтропию пароля в битах. Все пароли генерируются локально в вашем браузере 
+    с использованием криптографически стойкого генератора случайных чисел (Web Crypto API).
+  </p>
+</section>
+
+<section className="mt-8">
+  <h2 className="text-2xl font-bold text-gray-800 mb-4">🔍 Проверка пароля на утечки</h2>
+  <p className="text-gray-700 leading-relaxed mb-3">
+    Узнайте, не был ли ваш пароль скомпрометирован в известных утечках данных, используя 
+    базу Have I Been Pwned. Проверка работает по методу <strong>k-anonymity</strong>: 
+    на сервер отправляются только первые 5 символов SHA-1 хеша, сам пароль никогда 
+    не покидает ваш браузер. Мгновенный результат с указанием количества утечек.
+  </p>
+</section>
+
+<section className="mt-8">
+  <h2 className="text-2xl font-bold text-gray-800 mb-4">🎲 Генератор passphrase (Diceware)</h2>
+  <p className="text-gray-700 leading-relaxed mb-3">
+    Создавайте запоминающиеся парольные фразы из случайных слов по методу Diceware. 
+    Passphrase надёжнее обычных паролей и легче запоминается. Настраивайте количество 
+    слов (4-8), разделитель, капитализацию и добавление чисел. Энтропия отображается 
+    в реальном времени.
+  </p>
+</section>
+
       <div className="mt-12 p-6 bg-blue-50 rounded-xl border border-blue-200">
         <h3 className="text-xl font-semibold text-blue-900 mb-3">
           🔒 Полная приватность и безопасность
