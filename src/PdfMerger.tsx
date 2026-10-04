@@ -83,8 +83,8 @@ export default function PdfMerger() {
       }
 
       const mergedBytes = await mergedPdf.save();
-      // ИСПРАВЛЕНИЕ: добавлено .buffer для совместимости с Blob
-      const blob = new Blob([mergedBytes.buffer], { type: 'application/pdf' });
+      // ИСПРАВЛЕНИЕ: явно приводим к ArrayBuffer для Blob
+      const blob = new Blob([mergedBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       setMergedBlob(blob);
     } catch (err) {
       alert('Ошибка при объединении PDF');
@@ -112,7 +112,7 @@ export default function PdfMerger() {
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">📎 Объединение PDF файлов</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2"> Объединение PDF файлов</h2>
         <p className="text-gray-600 mb-4">
           Объедините несколько PDF в один файл. Всё работает локально в браузере.
         </p>

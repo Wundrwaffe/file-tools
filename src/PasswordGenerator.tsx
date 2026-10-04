@@ -37,7 +37,6 @@ export default function PasswordGenerator() {
     setCopied(false);
   };
 
-  // Генерируем пароль при первом запуске и при изменении настроек
   useEffect(() => {
     if (!password) {
       generatePassword();
@@ -50,34 +49,35 @@ export default function PasswordGenerator() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Оценка надёжности через zxcvbn
   const getStrength = () => {
     if (!password) {
       return { label: 'Введите пароль', color: 'bg-gray-300', width: '0%', time: '' };
     }
     
     const result = zxcvbn(password);
-    const score = result.score; // 0 to 4
+    const score = result.score;
     
     const labels = ['Очень слабый', 'Слабый', 'Средний', 'Хороший', 'Отличный'];
     const colors = ['bg-red-600', 'bg-red-400', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500'];
     const widths = ['20%', '40%', '60%', '80%', '100%'];
     
-    // Форматируем время взлома
-    let timeText = result.crack_times_display.offline_fast_hashing_1e10_per_second;
-    if (timeText === 'less than a second') timeText = 'Мгновенно';
-    else if (timeText.includes('century')) timeText = timeText.replace('century', 'века').replace('centuries', 'веков');
-    else if (timeText.includes('year')) timeText = timeText.replace('years', 'лет').replace('year', 'год');
-    else if (timeText.includes('day')) timeText = timeText.replace('days', 'дней').replace('day', 'день');
-    else if (timeText.includes('hour')) timeText = timeText.replace('hours', 'часов').replace('hour', 'час');
-    else if (timeText.includes('minute')) timeText = timeText.replace('minutes', 'минут').replace('minute', 'минуту');
-    else if (timeText.includes('second')) timeText = timeText.replace('seconds', 'секунд').replace('second', 'секунду');
+    // ИСПРАВЛЕНИЕ: явно приводим к строке, чтобы TypeScript не ругался
+    const timeText = String(result.crack_times_display.offline_fast_hashing_1e10_per_second);
+    
+    let formattedTime = timeText;
+    if (timeText === 'less than a second') formattedTime = 'Мгновенно';
+    else if (timeText.includes('century')) formattedTime = timeText.replace('century', 'века').replace('centuries', 'веков');
+    else if (timeText.includes('year')) formattedTime = timeText.replace('years', 'лет').replace('year', 'год');
+    else if (timeText.includes('day')) formattedTime = timeText.replace('days', 'дней').replace('day', 'день');
+    else if (timeText.includes('hour')) formattedTime = timeText.replace('hours', 'часов').replace('hour', 'час');
+    else if (timeText.includes('minute')) formattedTime = timeText.replace('minutes', 'минут').replace('minute', 'минуту');
+    else if (timeText.includes('second')) formattedTime = timeText.replace('seconds', 'секунд').replace('second', 'секунду');
 
     return { 
       label: labels[score], 
       color: colors[score], 
       width: widths[score],
-      time: `Время взлома: ${timeText}`
+      time: `Время взлома: ${formattedTime}`
     };
   };
 
@@ -85,7 +85,7 @@ export default function PasswordGenerator() {
 
   return (
     <div className="w-full max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4"> Генератор паролей</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">🔐 Генератор паролей</h2>
       
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-2">
@@ -111,7 +111,7 @@ export default function PasswordGenerator() {
             className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
             title="Сгенерировать новый"
           >
-            
+            🔄
           </button>
         </div>
         

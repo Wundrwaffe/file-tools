@@ -247,7 +247,7 @@ export default function SensitiveBlur() {
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">🔒 Размытие sensitive-данных</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2"> Размытие sensitive-данных</h2>
         <p className="text-gray-600 mb-4">
           Выделите области на фото и примените размытие. Всё работает локально.
         </p>
@@ -270,7 +270,7 @@ export default function SensitiveBlur() {
               id="blur-input"
             />
             <label htmlFor="blur-input" className="cursor-pointer">
-              <div className="text-4xl mb-2">🔒</div>
+              <div className="text-4xl mb-2"></div>
               <p className="text-gray-700 font-medium">Перетащите изображение сюда</p>
               <p className="text-sm text-gray-500 mt-1">или нажмите для выбора</p>
             </label>
@@ -308,10 +308,10 @@ export default function SensitiveBlur() {
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Тип размытия:</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                   {([
-                    { id: 'gaussian', label: '️ Гаусс', desc: 'Мягкое' },
+                    { id: 'gaussian', label: '🌫️ Гаусс', desc: 'Мягкое' },
                     { id: 'pixelate', label: '🟦 Пиксели', desc: 'Кубиками' },
                     { id: 'mosaic', label: '🎨 Мозаика', desc: 'Цветные блоки' },
-                    { id: 'black', label: ' Чёрный', desc: 'Закрыть' },
+                    { id: 'black', label: '⬛ Чёрный', desc: 'Закрыть' },
                     { id: 'white', label: '⬜ Белый', desc: 'Закрыть' },
                   ] as { id: BlurType; label: string; desc: string }[]).map((opt) => (
                     <button

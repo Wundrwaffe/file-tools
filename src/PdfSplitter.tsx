@@ -32,8 +32,6 @@ export default function PdfSplitter() {
       const count = pdf.getPageCount();
       setPageCount(count);
       setSelectedPages(Array.from({ length: count }, (_, i) => i + 1));
-      
-      // Рендерим миниатюры через pdf.js
       await renderThumbnails(arrayBuffer, count);
     } catch {
       alert('Ошибка чтения PDF');
@@ -46,18 +44,19 @@ export default function PdfSplitter() {
       // @ts-ignore
       const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.mjs');
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.mjs';
-      
+
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const thumbs: PageThumbnail[] = [];
-      
+
       for (let i = 1; i <= count; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.5 }); // Маленький масштаб для миниатюр
+        const viewport = page.getViewport({ scale: 0.5 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
+        if (!context) continue;
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-        
+
         await page.render({ canvasContext: context, viewport }).promise;
         thumbs.push({ pageNumber: i, url: canvas.toDataURL('image/jpeg', 0.7) });
       }
@@ -115,10 +114,10 @@ export default function PdfSplitter() {
       const indices = selectedPages.map(p => p - 1);
       const copiedPages = await newPdf.copyPages(sourcePdf, indices);
       copiedPages.forEach((page) => newPdf.addPage(page));
-      
+
       const bytes = await newPdf.save();
-      // ИСПРАВЛЕНИЕ: добавлено .buffer для совместимости с Blob
-      const blob = new Blob([bytes.buffer], { type: 'application/pdf' });
+      // ИСПРАВЛЕНИЕ: явно приводим к ArrayBuffer для Blob
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       setResultBlob(blob);
     } catch {
       alert('Ошибка при разделении PDF');
@@ -132,7 +131,7 @@ export default function PdfSplitter() {
     const url = URL.createObjectURL(resultBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `extracted_pages.pdf`;
+    a.download = 'extracted_pages.pdf';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -298,7 +297,7 @@ export default function PdfSplitter() {
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {processing ? '⏳ Обработка...' : `✂️ Извлечь ${selectedPages.length} стр.`}
+              {processing ? ' Обработка...' : `✂️ Извлечь ${selectedPages.length} стр.`}
             </button>
 
             {resultBlob && (
