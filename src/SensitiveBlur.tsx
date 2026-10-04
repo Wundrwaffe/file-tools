@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 type BlurType = 'gaussian' | 'pixelate' | 'black' | 'white' | 'mosaic';
 type ShapeType = 'rectangle' | 'freeform';
 
 interface BlurArea {
   id: string;
-  points: { x: number; y: number }[]; // Для freeform — массив точек; для rectangle — 4 угла
+  points: { x: number; y: number }[];
   shape: ShapeType;
   blurType: BlurType;
 }
@@ -19,9 +19,9 @@ export default function SensitiveBlur() {
   const [shapeType, setShapeType] = useState<ShapeType>('rectangle');
   const [blurIntensity, setBlurIntensity] = useState(10);
   const [pixelSize, setPixelSize] = useState(10);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
 
   const handleFileSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -46,7 +46,6 @@ export default function SensitiveBlur() {
       const scale = img.width > maxWidth ? maxWidth / img.width : 1;
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
-      setImageDimensions({ width: img.width, height: img.height });
 
       drawCanvas();
     };
@@ -64,12 +63,10 @@ export default function SensitiveBlur() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    // Рисуем все области размытия
     blurAreas.forEach((area) => {
       applyBlurToArea(ctx, area);
     });
 
-    // Рисуем текущую выделяемую область
     if (currentPoints.length > 0) {
       ctx.strokeStyle = '#3b82f6';
       ctx.lineWidth = 2;
@@ -90,7 +87,6 @@ export default function SensitiveBlur() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Рисуем точки для freeform
       if (shapeType === 'freeform') {
         currentPoints.forEach((point) => {
           ctx.fillStyle = '#3b82f6';
@@ -106,9 +102,8 @@ export default function SensitiveBlur() {
     const scale = canvasRef.current ? canvasRef.current.width / (imageRef.current?.width || 1) : 1;
     
     ctx.save();
-    
-    // Создаём путь для clipping
     ctx.beginPath();
+    
     if (area.shape === 'rectangle' && area.points.length >= 2) {
       const x = area.points[0].x * scale;
       const y = area.points[0].y * scale;
@@ -116,7 +111,6 @@ export default function SensitiveBlur() {
       const h = (area.points[1].y - area.points[0].y) * scale;
       ctx.rect(x, y, w, h);
     } else {
-      // Freeform — полигон
       area.points.forEach((point, i) => {
         const px = point.x * scale;
         const py = point.y * scale;
@@ -127,7 +121,6 @@ export default function SensitiveBlur() {
     }
     ctx.clip();
 
-    // Применяем выбранный тип размытия
     if (area.blurType === 'gaussian') {
       ctx.filter = `blur(${blurIntensity}px)`;
       ctx.drawImage(canvasRef.current!, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
@@ -190,12 +183,10 @@ export default function SensitiveBlur() {
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getMousePos(e);
-    
     if (shapeType === 'rectangle') {
       setIsDrawing(true);
       setCurrentPoints([pos]);
     } else {
-      // Freeform — добавляем точку
       setCurrentPoints(prev => [...prev, pos]);
     }
   };
@@ -223,7 +214,6 @@ export default function SensitiveBlur() {
   };
 
   const handleDoubleClick = () => {
-    // Для freeform — завершаем полигон
     if (shapeType === 'freeform' && currentPoints.length >= 3) {
       const area: BlurArea = {
         id: `area-${Date.now()}`,
@@ -238,18 +228,12 @@ export default function SensitiveBlur() {
 
   const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Отмена текущего выделения
     setCurrentPoints([]);
     setIsDrawing(false);
   };
 
-  const clearAll = () => {
-    setBlurAreas([]);
-  };
-
-  const undoLast = () => {
-    setBlurAreas(blurAreas.slice(0, -1));
-  };
+  const clearAll = () => setBlurAreas([]);
+  const undoLast = () => setBlurAreas(blurAreas.slice(0, -1));
 
   const downloadImage = () => {
     const canvas = canvasRef.current;
@@ -263,7 +247,7 @@ export default function SensitiveBlur() {
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2"> Размытие sensitive-данных</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">🔒 Размытие sensitive-данных</h2>
         <p className="text-gray-600 mb-4">
           Выделите области на фото и примените размытие. Всё работает локально.
         </p>
@@ -286,16 +270,14 @@ export default function SensitiveBlur() {
               id="blur-input"
             />
             <label htmlFor="blur-input" className="cursor-pointer">
-              <div className="text-4xl mb-2"></div>
+              <div className="text-4xl mb-2">🔒</div>
               <p className="text-gray-700 font-medium">Перетащите изображение сюда</p>
               <p className="text-sm text-gray-500 mt-1">или нажмите для выбора</p>
             </label>
           </div>
         ) : (
           <>
-            {/* Панель настроек */}
             <div className="mb-4 space-y-3">
-              {/* Форма выделения */}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Форма выделения:</label>
                 <div className="flex gap-2">
@@ -322,15 +304,14 @@ export default function SensitiveBlur() {
                 </div>
               </div>
 
-              {/* Тип размытия */}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Тип размытия:</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                   {([
-                    { id: 'gaussian', label: '🌫️ Гаусс', desc: 'Мягкое' },
+                    { id: 'gaussian', label: '️ Гаусс', desc: 'Мягкое' },
                     { id: 'pixelate', label: '🟦 Пиксели', desc: 'Кубиками' },
                     { id: 'mosaic', label: '🎨 Мозаика', desc: 'Цветные блоки' },
-                    { id: 'black', label: '⬛ Чёрный', desc: 'Закрыть' },
+                    { id: 'black', label: ' Чёрный', desc: 'Закрыть' },
                     { id: 'white', label: '⬜ Белый', desc: 'Закрыть' },
                   ] as { id: BlurType; label: string; desc: string }[]).map((opt) => (
                     <button
@@ -349,7 +330,6 @@ export default function SensitiveBlur() {
                 </div>
               </div>
 
-              {/* Интенсивность */}
               {(blurType === 'gaussian' || blurType === 'pixelate' || blurType === 'mosaic') && (
                 <div>
                   <label className="flex justify-between text-sm font-medium text-gray-700 mb-1">
@@ -370,52 +350,34 @@ export default function SensitiveBlur() {
                 </div>
               )}
 
-              {/* Кнопки действий */}
               <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={undoLast}
-                  disabled={blurAreas.length === 0}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-                >
+                <button onClick={undoLast} disabled={blurAreas.length === 0} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50">
                   ↩️ Отменить последнюю
                 </button>
-                <button
-                  onClick={clearAll}
-                  disabled={blurAreas.length === 0}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                >
-                  ️ Очистить все
+                <button onClick={clearAll} disabled={blurAreas.length === 0} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
+                  🗑️ Очистить все
                 </button>
-                <button
-                  onClick={() => setImage(null)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
+                <button onClick={() => setImage(null)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                   📁 Другое фото
                 </button>
-                <button
-                  onClick={downloadImage}
-                  disabled={blurAreas.length === 0}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                >
+                <button onClick={downloadImage} disabled={blurAreas.length === 0} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
                   💾 Скачать результат
                 </button>
               </div>
             </div>
 
-            {/* Инструкция */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-700">
-  {shapeType === 'rectangle' ? (
-    <>
-      <strong>Прямоугольник:</strong> Зажмите левую кнопку мыши и перетащите, чтобы выделить область.
-    </>
-  ) : (
-    <>
-      <strong>Произвольная форма:</strong> Кликайте по точкам контура. Двойной клик — завершить выделение. Правый клик — отмена.
-    </>
-  )}
-</div>
+              {shapeType === 'rectangle' ? (
+                <>
+                  <strong>Прямоугольник:</strong> Зажмите левую кнопку мыши и перетащите, чтобы выделить область.
+                </>
+              ) : (
+                <>
+                  <strong>Произвольная форма:</strong> Кликайте по точкам контура. Двойной клик — завершить выделение. Правый клик — отмена.
+                </>
+              )}
+            </div>
 
-            {/* Canvas */}
             <div className="border border-gray-300 rounded-lg overflow-hidden bg-gray-100">
               <canvas
                 ref={canvasRef}
@@ -429,7 +391,6 @@ export default function SensitiveBlur() {
               />
             </div>
 
-            {/* Статистика */}
             {blurAreas.length > 0 && (
               <div className="mt-4 text-sm text-gray-600">
                 Применено областей: <strong>{blurAreas.length}</strong>

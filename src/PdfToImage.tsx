@@ -22,7 +22,7 @@ export default function PdfToImage() {
     setProcessing(true);
 
     try {
-      // Используем pdf.js через CDN для рендеринга
+      // @ts-ignore
       const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.mjs');
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.mjs';
 
@@ -98,7 +98,7 @@ export default function PdfToImage() {
               id="toimage-input"
             />
             <label htmlFor="toimage-input" className="cursor-pointer">
-              <div className="text-4xl mb-2"></div>
+              <div className="text-4xl mb-2">🖼️</div>
               <p className="text-gray-700 font-medium">Перетащите PDF файл сюда</p>
               <p className="text-sm text-gray-500 mt-1">или нажмите для выбора</p>
             </label>
@@ -140,7 +140,7 @@ export default function PdfToImage() {
                 onClick={downloadAll}
                 className="w-full mb-4 p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors"
               >
-                ️ Скачать все страницы ({images.length})
+                ⬇️ Скачать все страницы ({images.length})
               </button>
             )}
           </>

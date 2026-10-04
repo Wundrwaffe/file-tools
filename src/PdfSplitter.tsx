@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PDFDocument } from 'pdf-lib';
 
 interface PageThumbnail {
@@ -32,7 +32,7 @@ export default function PdfSplitter() {
       const count = pdf.getPageCount();
       setPageCount(count);
       setSelectedPages(Array.from({ length: count }, (_, i) => i + 1));
-
+      
       // Рендерим миниатюры через pdf.js
       await renderThumbnails(arrayBuffer, count);
     } catch {
@@ -43,12 +43,13 @@ export default function PdfSplitter() {
   const renderThumbnails = async (arrayBuffer: ArrayBuffer, count: number) => {
     setRenderingThumbnails(true);
     try {
+      // @ts-ignore
       const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.mjs');
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.mjs';
-
+      
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const thumbs: PageThumbnail[] = [];
-
+      
       for (let i = 1; i <= count; i++) {
         const page = await pdf.getPage(i);
         const viewport = page.getViewport({ scale: 0.5 }); // Маленький масштаб для миниатюр
@@ -56,11 +57,10 @@ export default function PdfSplitter() {
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-
+        
         await page.render({ canvasContext: context, viewport }).promise;
         thumbs.push({ pageNumber: i, url: canvas.toDataURL('image/jpeg', 0.7) });
       }
-
       setThumbnails(thumbs);
     } catch (err) {
       console.error('Thumbnail rendering error:', err);
@@ -115,9 +115,10 @@ export default function PdfSplitter() {
       const indices = selectedPages.map(p => p - 1);
       const copiedPages = await newPdf.copyPages(sourcePdf, indices);
       copiedPages.forEach((page) => newPdf.addPage(page));
-
+      
       const bytes = await newPdf.save();
-      const blob = new Blob([bytes], { type: 'application/pdf' });
+      // ИСПРАВЛЕНИЕ: добавлено .buffer для совместимости с Blob
+      const blob = new Blob([bytes.buffer], { type: 'application/pdf' });
       setResultBlob(blob);
     } catch {
       alert('Ошибка при разделении PDF');
@@ -192,27 +193,17 @@ export default function PdfSplitter() {
 
             {/* Кнопки быстрого выбора */}
             <div className="flex flex-wrap gap-2 mb-4">
-              <button
-                onClick={selectAll}
-                className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-              >
+              <button onClick={selectAll} className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">
                 Выбрать все
               </button>
-              <button
-                onClick={selectNone}
-                className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-              >
+              <button onClick={selectNone} className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">
                 Снять все
               </button>
-              <button
-                onClick={selectRange}
-                className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-              >
+              <button onClick={selectRange} className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">
                 Выбрать диапазон
               </button>
               <button
                 onClick={() => {
-                  // Чётные страницы
                   setSelectedPages(Array.from({ length: pageCount }, (_, i) => i + 1).filter(p => p % 2 === 0));
                   setResultBlob(null);
                 }}
@@ -222,7 +213,6 @@ export default function PdfSplitter() {
               </button>
               <button
                 onClick={() => {
-                  // Нечётные страницы
                   setSelectedPages(Array.from({ length: pageCount }, (_, i) => i + 1).filter(p => p % 2 !== 0));
                   setResultBlob(null);
                 }}
@@ -254,11 +244,7 @@ export default function PdfSplitter() {
                           : 'border-gray-200 hover:border-gray-400 opacity-60 hover:opacity-100'
                       }`}
                     >
-                      <img
-                        src={thumb.url}
-                        alt={`Страница ${thumb.pageNumber}`}
-                        className="w-full h-auto"
-                      />
+                      <img src={thumb.url} alt={`Страница ${thumb.pageNumber}`} className="w-full h-auto" />
                       <div className={`absolute top-1 left-1 px-2 py-0.5 rounded text-xs font-bold ${
                         isSelected ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
                       }`}>
@@ -277,7 +263,7 @@ export default function PdfSplitter() {
               </div>
             )}
 
-            {/* Fallback: если миниатюры не загрузились, показываем кнопки */}
+            {/* Fallback: если миниатюры не загрузились */}
             {!renderingThumbnails && thumbnails.length === 0 && pageCount > 0 && (
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-2">Миниатюры недоступны. Выберите страницы кнопками:</p>
