@@ -162,12 +162,15 @@ export default function Archiver() {
     try {
       const zip = new JSZip();
       const compression = compressionLevel === 'STORE' ? 'STORE' : 'DEFLATE';
+      // ИСПРАВЛЕНИЕ: всегда число, никогда undefined
+      const level: number = compression === 'DEFLATE' ? 9 : 0;
 
       for (const file of filesToArchive) {
-        zip.file(file.path, file.file, {
+        // ИСПРАВЛЕНИЕ: приводим File к Blob для совместимости с типами JSZip
+        zip.file(file.path, file.file as Blob, {
           compression: compression,
           compressionOptions: {
-            level: compression === 'DEFLATE' ? 9 : undefined,
+            level: level,
           },
         });
       }
@@ -176,7 +179,7 @@ export default function Archiver() {
         type: 'blob',
         compression: compression,
         compressionOptions: {
-          level: compression === 'DEFLATE' ? 9 : undefined,
+          level: level,
         },
       });
 
@@ -265,15 +268,12 @@ export default function Archiver() {
     // Проверяем поддержку File System Access API (Chrome, Edge, Opera)
     if ('showDirectoryPicker' in window) {
       try {
-        // Открываем диалог выбора папки
         const dirHandle = await (window as any).showDirectoryPicker({
           mode: 'readwrite',
         });
         
-        // Создаём подпапку с именем архива
         const targetDir = await dirHandle.getDirectoryHandle(folderName, { create: true });
         
-        // Сохраняем каждый файл в эту папку
         for (const file of extractedFiles) {
           const fileName = file.path.split('/').pop() || file.name;
           const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
@@ -285,12 +285,10 @@ export default function Archiver() {
         alert(`✅ Файлы сохранены в папку "${folderName}"`);
         return;
       } catch (err: any) {
-        // Если пользователь отменил выбор — просто выходим
         if (err.name === 'AbortError') {
           return;
         }
         console.error('File System Access API error:', err);
-        // Фолбэк на ZIP при ошибке
       }
     }
 
@@ -356,7 +354,7 @@ export default function Archiver() {
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-             Разархивировать
+            📂 Разархивировать
           </button>
         </div>
 
@@ -492,7 +490,7 @@ export default function Archiver() {
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                 >
-                  {archiving ? ' Архивация...' : `📦 Создать архив (${filesToArchive.length} файлов)`}
+                  {archiving ? '⏳ Архивация...' : `📦 Создать архив (${filesToArchive.length} файлов)`}
                 </button>
 
                 {archiveBlob && (
@@ -565,7 +563,7 @@ export default function Archiver() {
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                 >
-                  {extracting ? '⏳ Разархивация...' : '📂 Извлечь файлы'}
+                  {extracting ? '⏳ Разархивация...' : ' Извлечь файлы'}
                 </button>
 
                 {extractedFiles.length > 0 && (
@@ -581,7 +579,7 @@ export default function Archiver() {
                       className="w-full mb-4 p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors"
                       title="Сохранить файлы в настоящую папку на компьютере"
                     >
-                      📁 Скачать всё как папку
+                       Скачать всё как папку
                     </button>
 
                     <div className="space-y-2 max-h-96 overflow-y-auto">
