@@ -1,201 +1,305 @@
-import { useState } from 'react';
-import imageCompression from 'browser-image-compression';
+import { useState, useEffect } from 'react';
+import JSZip from 'jszip';
 
 interface CompressorProps {
   files: File[];
 }
 
-// Простой интерфейс для результатов (без сложной типизации)
-interface ResultItem {
+interface ProcessedImage {
   id: string;
-  fileName: string;
+  originalFile: File;
+  originalUrl: string;
+  compressedUrl: string | null;
+  compressedBlob: Blob | null;
   originalSize: number;
-  compressedSize?: number;
-  compressedBlob?: Blob;
-  error?: string;
-  isProcessing: boolean;
+  compressedSize: number | null;
+  processing: boolean;
+  error: string | null;
 }
 
 export default function Compressor({ files }: CompressorProps) {
-  const [quality, setQuality] = useState(0.7); // Качество от 0.1 до 1.0
-  const [results, setResults] = useState<ResultItem[]>([]);
-  const [isCompressingAll, setIsCompressingAll] = useState(false);
+  const [quality, setQuality] = useState(75);
+  const [format, setFormat] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg');
+  const [images, setImages] = useState<ProcessedImage[]>([]);
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
-  // Форматирование размера файла
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  // Функция сжатия одного файла
-  const compressFile = async (file: File, id: string) => {
-    // Проверка: это изображение?
-    if (!file.type.startsWith('image/')) {
-      setResults(prev => prev.map(item => 
-        item.id === id ? { ...item, isProcessing: false, error: 'Поддерживаются только изображения (JPG, PNG, WebP)' } : item
-      ));
+  // При изменении файлов — создаём записи
+  useEffect(() => {
+    if (files.length === 0) {
+      setImages([]);
       return;
     }
 
-    try {
-      const options = {
-        initialQuality: quality,
-        maxWidthOrHeight: 1920, // Ограничиваем максимальное разрешение для ускорения
-        useWebWorker: true,
-      };
-
-      const compressedFile = await imageCompression(file, options);
-      
-      setResults(prev => prev.map(item => 
-        item.id === id ? { 
-          ...item, 
-          isProcessing: false, 
-          compressedSize: compressedFile.size, 
-          compressedBlob: compressedFile 
-        } : item
-      ));
-    } catch (error) {
-      setResults(prev => prev.map(item => 
-        item.id === id ? { ...item, isProcessing: false, error: 'Ошибка при сжатии' } : item
-      ));
-    }
-  };
-
-  // Запуск сжатия для всех файлов
-  const handleCompressAll = async () => {
-    setIsCompressingAll(true);
-    
-    // Инициализируем список результатов
-    const initialResults: ResultItem[] = files.map(file => ({
-      id: Math.random().toString(36).substring(7),
-      fileName: file.name,
+    const newImages: ProcessedImage[] = files.map((file) => ({
+      id: `${file.name}-${Date.now()}-${Math.random()}`,
+      originalFile: file,
+      originalUrl: URL.createObjectURL(file),
+      compressedUrl: null,
+      compressedBlob: null,
       originalSize: file.size,
-      isProcessing: true,
+      compressedSize: null,
+      processing: false,
+      error: null,
     }));
-    setResults(initialResults);
 
-    // Обрабатываем файлы последовательно, чтобы не перегружать браузер
-    for (const file of files) {
-      const id = initialResults.find(r => r.fileName === file.name)?.id;
-      if (id) {
-        await compressFile(file, id);
-      }
-    }
-    
-    setIsCompressingAll(false);
+    setImages(newImages);
+  }, [files]);
+
+  // Сжимаем все изображения при изменении качества или формата
+  useEffect(() => {
+    if (images.length === 0) return;
+
+    const compressAll = async () => {
+      const updated = await Promise.all(
+        images.map(async (img) => {
+          try {
+            const blob = await compressImage(img.originalFile, quality, format);
+            const url = URL.createObjectURL(blob);
+            return {
+              ...img,
+              compressedUrl: url,
+              compressedBlob: blob,
+              compressedSize: blob.size,
+              processing: false,
+              error: null,
+            };
+          } catch (err) {
+            return {
+              ...img,
+              processing: false,
+              error: 'Ошибка сжатия',
+            };
+          }
+        })
+      );
+      setImages(updated);
+    };
+
+    compressAll();
+  }, [quality, format]);
+
+  const compressImage = (file: File, q: number, fmt: string): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context not available'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Compression failed'));
+          },
+          fmt,
+          q / 100
+        );
+      };
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = URL.createObjectURL(file);
+    });
   };
 
-  // Скачивание файла
-  const downloadFile = (blob: Blob, fileName: string) => {
-    const url = URL.createObjectURL(blob);
+  const formatSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const getReduction = (original: number, compressed: number): string => {
+    const reduction = ((original - compressed) / original) * 100;
+    return reduction.toFixed(0);
+  };
+
+  const downloadSingle = (img: ProcessedImage) => {
+    if (!img.compressedBlob) return;
+    const ext = format === 'image/jpeg' ? 'jpg' : format === 'image/png' ? 'png' : 'webp';
+    const name = img.originalFile.name.replace(/\.[^.]+$/, '') + `_compressed.${ext}`;
+    const url = URL.createObjectURL(img.compressedBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `compressed_${fileName}`;
-    document.body.appendChild(a);
+    a.download = name;
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
+  const downloadAll = async () => {
+    setDownloadingAll(true);
+    const zip = new JSZip();
+    const ext = format === 'image/jpeg' ? 'jpg' : format === 'image/png' ? 'png' : 'webp';
+
+    images.forEach((img) => {
+      if (img.compressedBlob) {
+        const name = img.originalFile.name.replace(/\.[^.]+$/, '') + `_compressed.${ext}`;
+        zip.file(name, img.compressedBlob);
+      }
+    });
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'compressed_images.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+    setDownloadingAll(false);
+  };
+
+  const totalOriginal = images.reduce((sum, img) => sum + img.originalSize, 0);
+  const totalCompressed = images.reduce((sum, img) => sum + (img.compressedSize || 0), 0);
+  const totalReduction = totalOriginal > 0 ? getReduction(totalOriginal, totalCompressed) : '0';
+
   if (files.length === 0) {
     return (
-      <div className="text-center p-8 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-500">
-        Сначала выберите файлы в зоне выше 👆
+      <div className="text-center py-12 text-gray-500">
+        <p className="text-lg">Загрузите изображения для сжатия</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-6">
-      {/* Панель управления */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
-          <div className="w-full md:w-1/2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Качество сжатия: <span className="text-blue-600 font-bold">{Math.round(quality * 100)}%</span>
-            </label>
-            <input
-              type="range"
-              min="0.1"
-              max="1.0"
-              step="0.1"
-              value={quality}
-              onChange={(e) => setQuality(parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>Макс. сжатие</span>
-              <span>Оригинал</span>
+    <div className="w-full max-w-3xl mx-auto">
+      {/* Панель настроек */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Настройки сжатия</h3>
+        
+        <div className="mb-4">
+          <label className="flex justify-between text-sm font-medium text-gray-700 mb-2">
+            <span>Качество</span>
+            <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">{quality}%</span>
+          </label>
+          <input
+            type="range"
+            min="10"
+            max="100"
+            value={quality}
+            onChange={(e) => setQuality(Number(e.target.value))}
+            className="w-full accent-blue-600"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>Меньше размер</span>
+            <span>Лучше качество</span>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="text-sm font-medium text-gray-700 mb-2 block">Формат выхода</label>
+          <div className="flex gap-2">
+            {(['image/jpeg', 'image/png', 'image/webp'] as const).map((fmt) => (
+              <button
+                key={fmt}
+                onClick={() => setFormat(fmt)}
+                className={`flex-1 p-2 rounded-lg border text-sm transition-colors ${
+                  format === fmt
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {fmt === 'image/jpeg' ? 'JPG' : fmt === 'image/png' ? 'PNG' : 'WebP'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Итоговая статистика */}
+        {images.length > 0 && images.some(img => img.compressedSize !== null) && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600">Всего файлов: <strong>{images.length}</strong></p>
+                <p className="text-sm text-gray-600">
+                  Общий размер: <strong>{formatSize(totalOriginal)}</strong> → <strong>{formatSize(totalCompressed)}</strong>
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-green-600">-{totalReduction}%</p>
+                <p className="text-xs text-gray-500">экономия</p>
+              </div>
             </div>
           </div>
-          
-          <button
-            onClick={handleCompressAll}
-            disabled={isCompressingAll}
-            className={`px-6 py-3 rounded-lg font-semibold text-white transition-all ${
-              isCompressingAll 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'
-            }`}
-          >
-            {isCompressingAll ? '⏳ Сжатие...' : '🚀 Сжать все файлы'}
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* Результаты */}
-      {results.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold text-gray-700">
-            Результаты обработки
-          </div>
-          <div className="divide-y divide-gray-100">
-            {results.map((item) => {
-              const savings = item.compressedSize 
-                ? Math.round((1 - item.compressedSize / item.originalSize) * 100) 
-                : 0;
-
-              return (
-                <div key={item.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">{item.fileName}</p>
-                    <div className="flex items-center gap-3 text-sm mt-1">
-                      <span className="text-gray-500">Было: {formatSize(item.originalSize)}</span>
-                      {item.compressedSize && (
-                        <>
-                          <span className="text-gray-400">→</span>
-                          <span className="text-green-600 font-medium">Стало: {formatSize(item.compressedSize)}</span>
-                          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-bold">
-                            -{savings}%
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {item.error && (
-                      <p className="text-red-500 text-sm mt-1">⚠️ {item.error}</p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {item.isProcessing && (
-                      <span className="text-sm text-blue-600 animate-pulse">Обработка...</span>
-                    )}
-                    {item.compressedBlob && !item.isProcessing && (
-                      <button
-                        onClick={() => downloadFile(item.compressedBlob!, item.fileName)}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors text-sm"
-                      >
-                        <span>⬇️</span> Скачать
-                      </button>
-                    )}
-                  </div>
+      {/* Список изображений */}
+      <div className="space-y-4">
+        {images.map((img) => {
+          const reduction = img.compressedSize ? getReduction(img.originalSize, img.compressedSize) : null;
+          return (
+            <div key={img.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Превью */}
+                <div className="w-full md:w-48 h-32 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                  <img
+                    src={img.compressedUrl || img.originalUrl}
+                    alt={img.originalFile.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Информация */}
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-800 truncate">{img.originalFile.name}</h4>
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm">
+                    <div>
+                      <span className="text-gray-500">До:</span>{' '}
+                      <span className="font-mono">{formatSize(img.originalSize)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">После:</span>{' '}
+                      <span className="font-mono">
+                        {img.compressedSize ? formatSize(img.compressedSize) : '...'}
+                      </span>
+                    </div>
+                    {reduction && (
+                      <div className="text-green-600 font-semibold">
+                        -{reduction}%
+                      </div>
+                    )}
+                  </div>
+                  {img.error && (
+                    <p className="text-red-500 text-sm mt-2">{img.error}</p>
+                  )}
+                </div>
+
+                {/* Кнопка скачивания */}
+                <div className="flex items-center">
+                  <button
+                    onClick={() => downloadSingle(img)}
+                    disabled={!img.compressedBlob}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      img.compressedBlob
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                     Скачать
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Кнопка скачать всё */}
+      {images.length > 1 && images.some(img => img.compressedBlob) && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={downloadAll}
+            disabled={downloadingAll}
+            className={`px-8 py-3 rounded-lg font-semibold transition-colors ${
+              downloadingAll
+                ? 'bg-gray-400 text-white cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            {downloadingAll ? '⏳ Создание ZIP...' : '📦 Скачать все в ZIP'}
+          </button>
         </div>
       )}
     </div>
