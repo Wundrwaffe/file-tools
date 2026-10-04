@@ -19,7 +19,8 @@ export default function SensitiveBlur() {
   const [shapeType, setShapeType] = useState<ShapeType>('rectangle');
   const [blurIntensity, setBlurIntensity] = useState(10);
   const [pixelSize, setPixelSize] = useState(10);
-  
+  const [lastTapTime, setLastTapTime] = useState(0);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
 
@@ -100,10 +101,10 @@ export default function SensitiveBlur() {
 
   const applyBlurToArea = (ctx: CanvasRenderingContext2D, area: BlurArea) => {
     const scale = canvasRef.current ? canvasRef.current.width / (imageRef.current?.width || 1) : 1;
-    
+
     ctx.save();
     ctx.beginPath();
-    
+
     if (area.shape === 'rectangle' && area.points.length >= 2) {
       const x = area.points[0].x * scale;
       const y = area.points[0].y * scale;
@@ -171,18 +172,35 @@ export default function SensitiveBlur() {
     return { minX, minY, maxX, maxY };
   };
 
-  const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Универсальная функция получения координат (мышь или touch)
+  const getPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
+
+    let clientX: number;
+    let clientY: number;
+
+    if ('touches' in e) {
+      // Touch-событие
+      if (e.touches.length === 0) return { x: 0, y: 0 };
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      // Mouse-событие
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: clientX - rect.left,
+      y: clientY - rect.top,
     };
   };
 
+  // === MOUSE HANDLERS ===
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pos = getMousePos(e);
+    const pos = getPos(e);
     if (shapeType === 'rectangle') {
       setIsDrawing(true);
       setCurrentPoints([pos]);
@@ -193,11 +211,63 @@ export default function SensitiveBlur() {
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || shapeType !== 'rectangle') return;
-    const pos = getMousePos(e);
+    const pos = getPos(e);
     setCurrentPoints([currentPoints[0], pos]);
   };
 
   const handleMouseUp = () => {
+    if (shapeType === 'rectangle' && isDrawing && currentPoints.length >= 2) {
+      const area: BlurArea = {
+        id: `area-${Date.now()}`,
+        points: [currentPoints[0], currentPoints[1]],
+        shape: 'rectangle',
+        blurType,
+      };
+      setBlurAreas([...blurAreas, area]);
+    }
+    setIsDrawing(false);
+    if (shapeType === 'rectangle') {
+      setCurrentPoints([]);
+    }
+  };
+
+  // === TOUCH HANDLERS ===
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // Предотвращаем скролл страницы
+    const pos = getPos(e);
+    if (shapeType === 'rectangle') {
+      setIsDrawing(true);
+      setCurrentPoints([pos]);
+    } else {
+      // Для freeform — отслеживаем двойной тап
+      const now = Date.now();
+      if (now - lastTapTime < 300 && currentPoints.length >= 3) {
+        // Двойной тап — завершаем полигон
+        const area: BlurArea = {
+          id: `area-${Date.now()}`,
+          points: [...currentPoints],
+          shape: 'freeform',
+          blurType,
+        };
+        setBlurAreas([...blurAreas, area]);
+        setCurrentPoints([]);
+        setLastTapTime(0);
+      } else {
+        setCurrentPoints(prev => [...prev, pos]);
+        setLastTapTime(now);
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // Предотвращаем скролл страницы
+    if (!isDrawing || shapeType !== 'rectangle') return;
+    const pos = getPos(e);
+    setCurrentPoints([currentPoints[0], pos]);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     if (shapeType === 'rectangle' && isDrawing && currentPoints.length >= 2) {
       const area: BlurArea = {
         id: `area-${Date.now()}`,
@@ -270,7 +340,7 @@ export default function SensitiveBlur() {
               id="blur-input"
             />
             <label htmlFor="blur-input" className="cursor-pointer">
-              <div className="text-4xl mb-2"></div>
+              <div className="text-4xl mb-2">🔒</div>
               <p className="text-gray-700 font-medium">Перетащите изображение сюда</p>
               <p className="text-sm text-gray-500 mt-1">или нажмите для выбора</p>
             </label>
@@ -289,7 +359,7 @@ export default function SensitiveBlur() {
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    ▭ Прямоугольник
+                     Прямоугольник
                   </button>
                   <button
                     onClick={() => { setShapeType('freeform'); setCurrentPoints([]); }}
@@ -308,7 +378,7 @@ export default function SensitiveBlur() {
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Тип размытия:</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                   {([
-                    { id: 'gaussian', label: '🌫️ Гаусс', desc: 'Мягкое' },
+                    { id: 'gaussian', label: '️ Гаусс', desc: 'Мягкое' },
                     { id: 'pixelate', label: '🟦 Пиксели', desc: 'Кубиками' },
                     { id: 'mosaic', label: '🎨 Мозаика', desc: 'Цветные блоки' },
                     { id: 'black', label: '⬛ Чёрный', desc: 'Закрыть' },
@@ -355,7 +425,7 @@ export default function SensitiveBlur() {
                   ↩️ Отменить последнюю
                 </button>
                 <button onClick={clearAll} disabled={blurAreas.length === 0} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
-                  🗑️ Очистить все
+                  ️ Очистить все
                 </button>
                 <button onClick={() => setImage(null)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                   📁 Другое фото
@@ -369,11 +439,11 @@ export default function SensitiveBlur() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-700">
               {shapeType === 'rectangle' ? (
                 <>
-                  <strong>Прямоугольник:</strong> Зажмите левую кнопку мыши и перетащите, чтобы выделить область.
+                  <strong>Прямоугольник:</strong> Зажмите и перетащите (на ПК — мышь, на телефоне — палец), чтобы выделить область.
                 </>
               ) : (
                 <>
-                  <strong>Произвольная форма:</strong> Кликайте по точкам контура. Двойной клик — завершить выделение. Правый клик — отмена.
+                  <strong>Произвольная форма:</strong> Нажимайте по точкам контура. Двойное нажатие (или двойной клик) — завершить выделение. Кнопка "Отменить" — сбросить текущее.
                 </>
               )}
             </div>
@@ -381,13 +451,19 @@ export default function SensitiveBlur() {
             <div className="border border-gray-300 rounded-lg overflow-hidden bg-gray-100">
               <canvas
                 ref={canvasRef}
+                // Mouse events (для ПК)
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
                 onDoubleClick={handleDoubleClick}
                 onContextMenu={handleRightClick}
-                className="cursor-crosshair block max-w-full"
+                // Touch events (для телефонов)
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className="cursor-crosshair block max-w-full touch-none"
+                style={{ touchAction: 'none' }}
               />
             </div>
 
