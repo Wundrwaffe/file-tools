@@ -14,6 +14,7 @@ export default function PdfSplitter() {
   const [resultBlob, setResultBlob] = useState<Blob | null>(null);
   const [thumbnails, setThumbnails] = useState<PageThumbnail[]>([]);
   const [renderingThumbnails, setRenderingThumbnails] = useState(false);
+  const [previewPage, setPreviewPage] = useState<PageThumbnail | null>(null);
 
   const handleFile = async (f: File) => {
     if (f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
@@ -25,6 +26,7 @@ export default function PdfSplitter() {
     setResultBlob(null);
     setSelectedPages([]);
     setThumbnails([]);
+    setPreviewPage(null);
 
     try {
       const arrayBuffer = await f.arrayBuffer();
@@ -32,6 +34,7 @@ export default function PdfSplitter() {
       const count = pdf.getPageCount();
       setPageCount(count);
       setSelectedPages(Array.from({ length: count }, (_, i) => i + 1));
+
       await renderThumbnails(arrayBuffer, count);
     } catch {
       alert('Ошибка чтения PDF');
@@ -50,7 +53,7 @@ export default function PdfSplitter() {
 
       for (let i = 1; i <= count; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.5 });
+        const viewport = page.getViewport({ scale: 0.8 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         if (!context) continue;
@@ -58,7 +61,7 @@ export default function PdfSplitter() {
         canvas.width = viewport.width;
 
         await page.render({ canvasContext: context, viewport }).promise;
-        thumbs.push({ pageNumber: i, url: canvas.toDataURL('image/jpeg', 0.7) });
+        thumbs.push({ pageNumber: i, url: canvas.toDataURL('image/jpeg', 0.8) });
       }
       setThumbnails(thumbs);
     } catch (err) {
@@ -116,7 +119,6 @@ export default function PdfSplitter() {
       copiedPages.forEach((page) => newPdf.addPage(page));
 
       const bytes = await newPdf.save();
-      // ИСПРАВЛЕНИЕ: явно приводим к ArrayBuffer для Blob
       const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' });
       setResultBlob(blob);
     } catch {
@@ -183,7 +185,7 @@ export default function PdfSplitter() {
                 </p>
               </div>
               <button
-                onClick={() => { setFile(null); setPageCount(0); setThumbnails([]); setResultBlob(null); }}
+                onClick={() => { setFile(null); setPageCount(0); setThumbnails([]); setResultBlob(null); setPreviewPage(null); }}
                 className="text-red-600 hover:underline text-sm"
               >
                 Выбрать другой
@@ -230,36 +232,49 @@ export default function PdfSplitter() {
             )}
 
             {!renderingThumbnails && thumbnails.length > 0 && (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-4">
-                {thumbnails.map((thumb) => {
-                  const isSelected = selectedPages.includes(thumb.pageNumber);
-                  return (
-                    <button
-                      key={thumb.pageNumber}
-                      onClick={() => togglePage(thumb.pageNumber)}
-                      className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                        isSelected
-                          ? 'border-blue-600 shadow-md ring-2 ring-blue-200'
-                          : 'border-gray-200 hover:border-gray-400 opacity-60 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={thumb.url} alt={`Страница ${thumb.pageNumber}`} className="w-full h-auto" />
-                      <div className={`absolute top-1 left-1 px-2 py-0.5 rounded text-xs font-bold ${
-                        isSelected ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
-                      }`}>
-                        {thumb.pageNumber}
-                      </div>
-                      {isSelected && (
-                        <div className="absolute inset-0 bg-blue-600 bg-opacity-10 flex items-center justify-center">
-                          <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold">
-                            ✓
-                          </div>
+              <>
+                <div className="mb-3 text-sm text-gray-600">
+                  <strong>Кликните на страницу</strong> для выбора/снятия. <strong>Двойной клик</strong> — просмотр в полном размере.
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
+                  {thumbnails.map((thumb) => {
+                    const isSelected = selectedPages.includes(thumb.pageNumber);
+                    return (
+                      <button
+                        key={thumb.pageNumber}
+                        onClick={() => togglePage(thumb.pageNumber)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewPage(thumb);
+                        }}
+                        className={`relative rounded-lg overflow-hidden border-2 transition-all hover:shadow-lg ${
+                          isSelected
+                            ? 'border-blue-600 shadow-md ring-2 ring-blue-200'
+                            : 'border-gray-200 hover:border-gray-400 opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img
+                          src={thumb.url}
+                          alt={`Страница ${thumb.pageNumber}`}
+                          className="w-full h-auto"
+                        />
+                        <div className={`absolute top-1 left-1 px-2 py-0.5 rounded text-xs font-bold ${
+                          isSelected ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
+                        }`}>
+                          {thumb.pageNumber}
                         </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-blue-600 bg-opacity-10 flex items-center justify-center">
+                            <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold shadow-lg">
+                              ✓
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
             )}
 
             {/* Fallback: если миниатюры не загрузились */}
@@ -284,9 +299,15 @@ export default function PdfSplitter() {
               </div>
             )}
 
-            <p className="text-sm text-gray-600 mb-4">
-              Выбрано страниц: <strong>{selectedPages.length}</strong> из {pageCount}
-            </p>
+            {/* Счётчик выбранных страниц */}
+            <div className="flex items-center justify-between mb-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-700">
+                Выбрано страниц: <strong className="text-blue-600">{selectedPages.length}</strong> из {pageCount}
+              </p>
+              <p className="text-sm text-gray-500">
+                {selectedPages.length === pageCount ? '✓ Все страницы' : `${pageCount - selectedPages.length} стр. будет удалено`}
+              </p>
+            </div>
 
             <button
               onClick={splitPdf}
@@ -297,7 +318,7 @@ export default function PdfSplitter() {
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {processing ? ' Обработка...' : `✂️ Извлечь ${selectedPages.length} стр.`}
+              {processing ? '⏳ Обработка...' : `✂️ Извлечь ${selectedPages.length} стр.`}
             </button>
 
             {resultBlob && (
@@ -311,6 +332,56 @@ export default function PdfSplitter() {
           </>
         )}
       </div>
+
+      {/* Модальное окно предпросмотра страницы */}
+      {previewPage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={() => setPreviewPage(null)}
+        >
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Страница {previewPage.pageNumber} из {pageCount}
+              </h3>
+              <button
+                onClick={() => setPreviewPage(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4">
+              <img
+                src={previewPage.url}
+                alt={`Страница ${previewPage.pageNumber}`}
+                className="w-full h-auto"
+              />
+            </div>
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex gap-2">
+              <button
+                onClick={() => {
+                  togglePage(previewPage.pageNumber);
+                  setPreviewPage(null);
+                }}
+                className={`flex-1 p-2 rounded-lg font-medium transition-colors ${
+                  selectedPages.includes(previewPage.pageNumber)
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {selectedPages.includes(previewPage.pageNumber) ? '✕ Исключить страницу' : '✓ Выбрать страницу'}
+              </button>
+              <button
+                onClick={() => setPreviewPage(null)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

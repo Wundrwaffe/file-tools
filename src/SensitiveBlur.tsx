@@ -23,9 +23,10 @@ export default function SensitiveBlur() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  // ВАЖНО: используем ref для хранения текущего состояния точек, чтобы избежать замыканий
+  // Ref для избежания замыканий в touch-обработчиках
   const currentPointsRef = useRef<{ x: number; y: number }[]>([]);
   const isDrawingRef = useRef(false);
+  const shapeTypeRef = useRef<ShapeType>('rectangle');
 
   const handleFileSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -36,6 +37,10 @@ export default function SensitiveBlur() {
     setImage(url);
     setBlurAreas([]);
   };
+
+  useEffect(() => {
+    shapeTypeRef.current = shapeType;
+  }, [shapeType]);
 
   useEffect(() => {
     if (!image || !canvasRef.current) return;
@@ -185,10 +190,12 @@ export default function SensitiveBlur() {
     let clientY: number;
 
     if ('touches' in e) {
+      // Touch-событие
       if (e.touches.length === 0) return { x: 0, y: 0 };
       clientX = e.touches[0].clientX;
       clientY = e.touches[0].clientY;
     } else {
+      // Mouse-событие
       clientX = e.clientX;
       clientY = e.clientY;
     }
@@ -199,10 +206,26 @@ export default function SensitiveBlur() {
     };
   };
 
+  const finishRectangle = () => {
+    if (currentPointsRef.current.length >= 2) {
+      const area: BlurArea = {
+        id: `area-${Date.now()}`,
+        points: [currentPointsRef.current[0], currentPointsRef.current[currentPointsRef.current.length - 1]],
+        shape: 'rectangle',
+        blurType,
+      };
+      setBlurAreas(prev => [...prev, area]);
+    }
+    setIsDrawing(false);
+    isDrawingRef.current = false;
+    setCurrentPoints([]);
+    currentPointsRef.current = [];
+  };
+
   // === MOUSE HANDLERS ===
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getPos(e);
-    if (shapeType === 'rectangle') {
+    if (shapeTypeRef.current === 'rectangle') {
       setIsDrawing(true);
       isDrawingRef.current = true;
       setCurrentPoints([pos]);
@@ -214,27 +237,15 @@ export default function SensitiveBlur() {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || shapeType !== 'rectangle') return;
+    if (!isDrawingRef.current || shapeTypeRef.current !== 'rectangle') return;
     const pos = getPos(e);
     setCurrentPoints([currentPointsRef.current[0], pos]);
     currentPointsRef.current = [currentPointsRef.current[0], pos];
   };
 
   const handleMouseUp = () => {
-    if (shapeType === 'rectangle' && isDrawing && currentPointsRef.current.length >= 2) {
-      const area: BlurArea = {
-        id: `area-${Date.now()}`,
-        points: [currentPointsRef.current[0], currentPointsRef.current[currentPointsRef.current.length - 1]],
-        shape: 'rectangle',
-        blurType,
-      };
-      setBlurAreas(prev => [...prev, area]);
-    }
-    setIsDrawing(false);
-    isDrawingRef.current = false;
-    if (shapeType === 'rectangle') {
-      setCurrentPoints([]);
-      currentPointsRef.current = [];
+    if (shapeTypeRef.current === 'rectangle' && isDrawingRef.current) {
+      finishRectangle();
     }
   };
 
@@ -242,8 +253,8 @@ export default function SensitiveBlur() {
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const pos = getPos(e);
-    
-    if (shapeType === 'rectangle') {
+
+    if (shapeTypeRef.current === 'rectangle') {
       setIsDrawing(true);
       isDrawingRef.current = true;
       setCurrentPoints([pos]);
@@ -273,7 +284,7 @@ export default function SensitiveBlur() {
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (!isDrawingRef.current || shapeType !== 'rectangle') return;
+    if (!isDrawingRef.current || shapeTypeRef.current !== 'rectangle') return;
     const pos = getPos(e);
     setCurrentPoints([currentPointsRef.current[0], pos]);
     currentPointsRef.current = [currentPointsRef.current[0], pos];
@@ -281,20 +292,8 @@ export default function SensitiveBlur() {
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (shapeType === 'rectangle' && isDrawingRef.current && currentPointsRef.current.length >= 2) {
-      const area: BlurArea = {
-        id: `area-${Date.now()}`,
-        points: [currentPointsRef.current[0], currentPointsRef.current[currentPointsRef.current.length - 1]],
-        shape: 'rectangle',
-        blurType,
-      };
-      setBlurAreas(prev => [...prev, area]);
-    }
-    setIsDrawing(false);
-    isDrawingRef.current = false;
-    if (shapeType === 'rectangle') {
-      setCurrentPoints([]);
-      currentPointsRef.current = [];
+    if (shapeTypeRef.current === 'rectangle' && isDrawingRef.current) {
+      finishRectangle();
     }
   };
 
@@ -320,13 +319,8 @@ export default function SensitiveBlur() {
     isDrawingRef.current = false;
   };
 
-  const clearAll = () => {
-    setBlurAreas([]);
-  };
-
-  const undoLast = () => {
-    setBlurAreas(prev => prev.slice(0, -1));
-  };
+  const clearAll = () => setBlurAreas([]);
+  const undoLast = () => setBlurAreas(prev => prev.slice(0, -1));
 
   const downloadImage = () => {
     const canvas = canvasRef.current;
@@ -340,7 +334,7 @@ export default function SensitiveBlur() {
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">🔒 Размытие sensitive-данных</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2"> Размытие sensitive-данных</h2>
         <p className="text-gray-600 mb-4">
           Выделите области на фото и примените размытие. Всё работает локально.
         </p>
@@ -363,7 +357,7 @@ export default function SensitiveBlur() {
               id="blur-input"
             />
             <label htmlFor="blur-input" className="cursor-pointer">
-              <div className="text-4xl mb-2">🔒</div>
+              <div className="text-4xl mb-2"></div>
               <p className="text-gray-700 font-medium">Перетащите изображение сюда</p>
               <p className="text-sm text-gray-500 mt-1">или нажмите для выбора</p>
             </label>
@@ -405,7 +399,7 @@ export default function SensitiveBlur() {
                     { id: 'pixelate', label: '🟦 Пиксели', desc: 'Кубиками' },
                     { id: 'mosaic', label: '🎨 Мозаика', desc: 'Цветные блоки' },
                     { id: 'black', label: '⬛ Чёрный', desc: 'Закрыть' },
-                    { id: 'white', label: ' Белый', desc: 'Закрыть' },
+                    { id: 'white', label: '⬜ Белый', desc: 'Закрыть' },
                   ] as { id: BlurType; label: string; desc: string }[]).map((opt) => (
                     <button
                       key={opt.id}
@@ -451,7 +445,7 @@ export default function SensitiveBlur() {
                   🗑️ Очистить все
                 </button>
                 <button onClick={() => setImage(null)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  📁 Другое фото
+                   Другое фото
                 </button>
                 <button onClick={downloadImage} disabled={blurAreas.length === 0} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
                   💾 Скачать результат
@@ -466,7 +460,7 @@ export default function SensitiveBlur() {
                 </>
               ) : (
                 <>
-                  <strong>Произвольная форма:</strong> Нажимайте по точкам контура. Двойное нажатие (или двойной клик) — завершить выделение. Кнопка "Отменить" — сбросить текущее.
+                  <strong>Произвольная форма:</strong> Нажимайте по точкам контура. Двойное нажатие (или двойной клик) — завершить выделение.
                 </>
               )}
             </div>

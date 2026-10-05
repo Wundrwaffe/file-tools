@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import exifr from 'exifr';
+import { PDFDocument } from 'pdf-lib';
 
 interface MetadataCleanerProps {
   files: File[];
@@ -8,20 +9,22 @@ interface MetadataCleanerProps {
 interface FileResult {
   id: string;
   file: File;
-  metadata: any; // Используем any, чтобы не бороться с типами EXIF
+  type: 'image' | 'pdf' | 'other';
+  metadata: Record<string, any>;
   isCleaned: boolean;
   cleanedBlob?: Blob;
   error?: string;
   isProcessing: boolean;
+  selectedFieldsToRemove: string[];
 }
 
 export default function MetadataCleaner({ files }: MetadataCleanerProps) {
-  const [mode, setMode] = useState<'all' | 'selective'>('all');
+  const [mode, setMode] = useState<'all' | 'selective'>('selective');
   const [results, setResults] = useState<FileResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Чтение метаданных при выборе файлов
-  React.useEffect(() => {
+  // 1. Глубокое чтение метаданных при выборе файлов
+  useEffect(() => {
     if (files.length === 0) {
       setResults([]);
       return;
@@ -30,35 +33,76 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
     const loadMetadata = async () => {
       const newResults: FileResult[] = await Promise.all(
         files.map(async (file) => {
-          if (!file.type.startsWith('image/')) {
+          const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+          const isImage = file.type.startsWith('image/');
+
+          if (!isPdf && !isImage) {
             return {
               id: Math.random().toString(36).substring(7),
               file,
-              metadata: null,
+              type: 'other' as const,
+              metadata: {},
               isCleaned: false,
-              error: 'Обработке подлежат только изображения (JPG, PNG, WebP)',
+              error: 'Поддерживаются только изображения (JPG, PNG, WebP) и PDF',
               isProcessing: false,
+              selectedFieldsToRemove: [],
             };
           }
 
           try {
-            // Читаем основные EXIF, GPS и IPTC данные
-            const meta = await exifr.parse(file, { exif: true, gps: true, iptc: true });
+            let metadata: Record<string, any> = {};
+
+            if (isImage) {
+              // Глубокое извлечение для изображений
+              const meta = await exifr.parse(file, { 
+                exif: true, 
+                gps: true, 
+                iptc: true, 
+                icc: true, 
+                xmp: true,
+                tiff: true,
+                jfif: true,
+                reviveValues: true 
+              });
+              metadata = meta || {};
+            } else if (isPdf) {
+              // Извлечение для PDF
+              const arrayBuffer = await file.arrayBuffer();
+              const pdfDoc = await PDFDocument.load(arrayBuffer, { updateMetadata: false });
+              metadata = {
+                title: pdfDoc.getTitle() || undefined,
+                author: pdfDoc.getAuthor() || undefined,
+                subject: pdfDoc.getSubject() || undefined,
+                keywords: pdfDoc.getKeywords() || undefined,
+                creator: pdfDoc.getCreator() || undefined,
+                producer: pdfDoc.getProducer() || undefined,
+                creationDate: pdfDoc.getCreationDate()?.toString() || undefined,
+                modificationDate: pdfDoc.getModificationDate()?.toString() || undefined,
+              };
+            }
+
+            // Определяем доступные поля для выборочного удаления
+            const availableFields = Object.keys(metadata).filter(key => metadata[key] !== undefined);
+
             return {
               id: Math.random().toString(36).substring(7),
               file,
-              metadata: meta,
+              type: isImage ? 'image' : 'pdf',
+              metadata,
               isCleaned: false,
               isProcessing: false,
+              selectedFieldsToRemove: availableFields, // По умолчанию выбираем всё для selective
             };
           } catch (e) {
-            // Если метаданных нет или ошибка чтения, это не страшно
             return {
               id: Math.random().toString(36).substring(7),
               file,
-              metadata: null,
+              type: isImage ? 'image' : 'pdf',
+              metadata: {},
               isCleaned: false,
+              error: 'Не удалось прочитать метаданные',
               isProcessing: false,
+              selectedFieldsToRemove: [],
             };
           }
         })
@@ -69,48 +113,104 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
     loadMetadata();
   }, [files]);
 
-  // Функция очистки через Canvas (гарантированно удаляет ВСЕ метаданные)
+  const toggleField = (id: string, field: string) => {
+    setResults(prev => prev.map(item => {
+      if (item.id === id) {
+        const isSelected = item.selectedFieldsToRemove.includes(field);
+        return {
+          ...item,
+          selectedFieldsToRemove: isSelected
+            ? item.selectedFieldsToRemove.filter(f => f !== field)
+            : [...item.selectedFieldsToRemove, field],
+        };
+      }
+      return item;
+    }));
+  };
+
+  // 2. Логика очистки
   const cleanFile = async (result: FileResult): Promise<FileResult> => {
-    if (result.error || !result.file.type.startsWith('image/')) {
+    if (result.error || result.type === 'other') {
       return { ...result, isProcessing: false };
     }
 
     try {
-      const img = new Image();
-      const url = URL.createObjectURL(result.file);
-      
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = url;
-      });
+      if (result.type === 'pdf') {
+        const arrayBuffer = await result.file.arrayBuffer();
+        
+        if (mode === 'all') {
+          // Удаляем всё: создаем новый документ и копируем страницы (это стирает весь Info Dictionary)
+          const sourcePdf = await PDFDocument.load(arrayBuffer);
+          const newPdf = await PDFDocument.create();
+          const copiedPages = await newPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
+          copiedPages.forEach((page) => newPdf.addPage(page));
+          const pdfBytes = await newPdf.save();
+          
+          return {
+            ...result,
+            isCleaned: true,
+            const blob = new Blob([pdfBytes as ArrayBuffer], { type: 'application/pdf' });
+            isProcessing: false,
+          };
+        } else {
+          // Выборочное удаление
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const fieldsToRemove = result.selectedFieldsToRemove;
+          
+          if (fieldsToRemove.includes('title')) pdfDoc.setTitle('');
+          if (fieldsToRemove.includes('author')) pdfDoc.setAuthor('');
+          if (fieldsToRemove.includes('subject')) pdfDoc.setSubject('');
+          if (fieldsToRemove.includes('keywords')) pdfDoc.setKeywords([]);
+          if (fieldsToRemove.includes('creator')) pdfDoc.setCreator('');
+          if (fieldsToRemove.includes('producer')) pdfDoc.setProducer('');
+          if (fieldsToRemove.includes('creationDate')) pdfDoc.setCreationDate(new Date(0));
+          if (fieldsToRemove.includes('modificationDate')) pdfDoc.setModificationDate(new Date(0));
 
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) throw new Error('Не удалось получить контекст canvas');
-      
-      ctx.drawImage(img, 0, 0);
+          const pdfBytes = await pdfDoc.save();
+          return {
+            ...result,
+            isCleaned: true,
+            cleanedBlob: new Blob([pdfBytes], { type: 'application/pdf' }),
+            isProcessing: false,
+          };
+        }
+      } else if (result.type === 'image') {
+        // Для изображений используем Canvas для гарантированного удаления ВСЕХ метаданных.
+        // Выборочное удаление для изображений в браузере крайне ненадежно без тяжелых библиотек,
+        // поэтому мы применяем Canvas, но предупреждаем пользователя в интерфейсе.
+        const img = new Image();
+        const url = URL.createObjectURL(result.file);
+        
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = url;
+        });
 
-      // Конвертируем canvas обратно в Blob. 
-      // ВАЖНО: Canvas по своей природе НЕ сохраняет метаданные исходного файла.
-      // Это самый надежный способ "выжечь" их без сложных библиотек.
-      const blob = await new Promise<Blob | null>(resolve => 
-        canvas.toBlob(resolve, result.file.type || 'image/jpeg', 0.95)
-      );
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) throw new Error('Не удалось получить контекст canvas');
+        
+        ctx.drawImage(img, 0, 0);
 
-      URL.revokeObjectURL(url);
+        const blob = await new Promise<Blob | null>(resolve => 
+          canvas.toBlob(resolve, result.file.type || 'image/jpeg', 0.95)
+        );
 
-      if (!blob) throw new Error('Ошибка создания очищенного файла');
+        URL.revokeObjectURL(url);
 
-      return {
-        ...result,
-        isCleaned: true,
-        cleanedBlob: blob,
-        isProcessing: false,
-      };
+        if (!blob) throw new Error('Ошибка создания очищенного файла');
+
+        return {
+          ...result,
+          isCleaned: true,
+          cleanedBlob: blob,
+          isProcessing: false,
+        };
+      }
     } catch (error) {
       return {
         ...result,
@@ -137,7 +237,6 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    // Добавляем префикс "clean_" к имени файла
     const nameParts = fileName.split('.');
     const ext = nameParts.pop();
     const cleanName = `clean_${nameParts.join('.')}.${ext}`;
@@ -147,6 +246,65 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  // Helper to format metadata for display
+  const formatMetadata = (meta: Record<string, any>, type: 'image' | 'pdf') => {
+    if (Object.keys(meta).length === 0) return null;
+
+    if (type === 'pdf') {
+      return (
+        <ul className="list-disc list-inside space-y-1 text-sm">
+          {meta.title && <li><strong>Название:</strong> {meta.title}</li>}
+          {meta.author && <li><strong>Автор:</strong> {meta.author}</li>}
+          {meta.subject && <li><strong>Тема:</strong> {meta.subject}</li>}
+          {meta.keywords && <li><strong>Ключевые слова:</strong> {meta.keywords}</li>}
+          {meta.creator && <li><strong>Создатель:</strong> {meta.creator}</li>}
+          {meta.producer && <li><strong>Производитель (ПО):</strong> {meta.producer}</li>}
+          {meta.creationDate && <li><strong>Дата создания:</strong> {meta.creationDate}</li>}
+          {meta.modificationDate && <li><strong>Дата изменения:</strong> {meta.modificationDate}</li>}
+        </ul>
+      );
+    } else {
+      // Группировка метаданных изображения
+      const groups: Record<string, string[]> = {
+        '📷 Камера': [],
+        '📍 Геолокация': [],
+        '📅 Дата и время': [],
+        '💻 ПО и настройки': [],
+        '📐 Изображение': [],
+      };
+
+      if (meta.Make || meta.Model) groups['📷 Камера'].push(`${meta.Make || ''} ${meta.Model || ''}`.trim());
+      if (meta.latitude && meta.longitude) groups['📍 Геолокация'].push(`${meta.latitude.toFixed(4)}, ${meta.longitude.toFixed(4)}`);
+      if (meta.DateTimeOriginal || meta.CreateDate) groups['📅 Дата и время'].push(String(meta.DateTimeOriginal || meta.CreateDate));
+      if (meta.Software || meta.Creator) groups['💻 ПО и настройки'].push(meta.Software || meta.Creator);
+      if (meta.ImageWidth || meta.ImageHeight) groups['📐 Изображение'].push(`${meta.ImageWidth} x ${meta.ImageHeight}`);
+
+      // Добавляем остальные некатегоризированные поля
+      Object.keys(meta).forEach(key => {
+        if (!['Make', 'Model', 'latitude', 'longitude', 'DateTimeOriginal', 'CreateDate', 'Software', 'Creator', 'ImageWidth', 'ImageHeight'].includes(key)) {
+           if (typeof meta[key] === 'string' || typeof meta[key] === 'number') {
+             groups['📐 Изображение'].push(`${key}: ${meta[key]}`);
+           }
+        }
+      });
+
+      return (
+        <div className="space-y-3 text-sm">
+          {Object.entries(groups).map(([groupName, items]) => 
+            items.length > 0 ? (
+              <div key={groupName}>
+                <p className="font-semibold text-gray-700 mb-1">{groupName}</p>
+                <ul className="list-disc list-inside space-y-1 text-gray-600">
+                  {items.map((item, idx) => <li key={idx}>{item}</li>)}
+                </ul>
+              </div>
+            ) : null
+          )}
+        </div>
+      );
+    }
   };
 
   if (files.length === 0) {
@@ -201,8 +359,8 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
         </div>
         
         {mode === 'selective' && (
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-            💡 <strong>Примечание:</strong> Для максимальной гарантии приватности в браузере применяется полная перерисовка изображения. Это физически удаляет <strong>все</strong> скрытые данные (GPS, модель камеры, дату), что надежнее частичного редактирования.
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+            💡 <strong>Примечание:</strong> Для PDF применяется точечное удаление выбранных полей. Для изображений применяется полная перерисовка (Canvas), что гарантирует удаление <strong>всех</strong> скрытых данных, так как выборочное редактирование EXIF в браузере ненадежно и может повредить файл.
           </div>
         )}
       </div>
@@ -218,30 +376,49 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
               <div key={item.id} className="p-4">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">{item.file.name}</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-xs px-2 py-1 rounded font-medium ${
+                        item.type === 'pdf' ? 'bg-red-100 text-red-700' : 
+                        item.type === 'image' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {item.type === 'pdf' ? 'PDF' : item.type === 'image' ? 'Изображение' : 'Неподдерживаемый'}
+                      </span>
+                      <p className="font-medium text-gray-800 truncate">{item.file.name}</p>
+                    </div>
                     
                     {item.error ? (
                       <p className="text-red-500 text-sm mt-1">⚠️ {item.error}</p>
-                    ) : item.metadata ? (
+                    ) : Object.keys(item.metadata).length > 0 ? (
                       <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                        <p className="font-semibold text-gray-700 mb-1">Найдено для удаления:</p>
-                        <ul className="list-disc list-inside space-y-1">
-                          {item.metadata.Make || item.metadata.Model ? (
-                            <li>📷 Камера: {item.metadata.Make} {item.metadata.Model}</li>
-                          ) : null}
-                          {item.metadata.latitude || item.metadata.longitude ? (
-                            <li>📍 GPS: {item.metadata.latitude?.toFixed(4)}, {item.metadata.longitude?.toFixed(4)}</li>
-                          ) : null}
-                          {item.metadata.DateTimeOriginal ? (
-                            <li>📅 Дата съемки: {String(item.metadata.DateTimeOriginal)}</li>
-                          ) : null}
-                          {!item.metadata.Make && !item.metadata.latitude && !item.metadata.DateTimeOriginal ? (
-                            <li>ℹ️ Минимальные метаданные (возможно, уже очищены или это скриншот)</li>
-                          ) : null}
-                        </ul>
+                        <p className="font-semibold text-gray-700 mb-2">Найденные метаданные:</p>
+                        {formatMetadata(item.metadata, item.type)}
+                        
+                        {/* Выборочное удаление (только если режим selective и есть метаданные) */}
+                        {mode === 'selective' && item.type !== 'other' && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="font-semibold text-gray-700 mb-2">Удалить следующие поля:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.keys(item.metadata).map((field) => (
+                                <label key={field} className="flex items-center gap-1.5 text-sm cursor-pointer select-none bg-white px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.selectedFieldsToRemove.includes(field)}
+                                    onChange={() => toggleField(item.id, field)}
+                                    className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                                  />
+                                  <span className="capitalize text-gray-700">
+                                    {field === 'creationDate' ? 'Дата создания' : 
+                                     field === 'modificationDate' ? 'Дата изменения' : 
+                                     field}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <p className="text-gray-500 text-sm mt-1">ℹ️ Явные метаданные не найдены (файл будет пересоздан для гарантии)</p>
+                      <p className="text-gray-500 text-sm mt-1">ℹ️ Явные метаданные не найдены (файл будет пересоздан для гарантии чистоты)</p>
                     )}
                   </div>
 
