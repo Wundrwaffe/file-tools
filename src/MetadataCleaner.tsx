@@ -23,7 +23,6 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
   const [results, setResults] = useState<FileResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 1. Глубокое чтение метаданных при выборе файлов
   useEffect(() => {
     if (files.length === 0) {
       setResults([]);
@@ -53,20 +52,11 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
             let metadata: Record<string, any> = {};
 
             if (isImage) {
-              // Глубокое извлечение для изображений
               const meta = await exifr.parse(file, { 
-                exif: true, 
-                gps: true, 
-                iptc: true, 
-                icc: true, 
-                xmp: true,
-                tiff: true,
-                jfif: true,
-                reviveValues: true 
+                exif: true, gps: true, iptc: true, icc: true, xmp: true, tiff: true, jfif: true, reviveValues: true 
               });
               metadata = meta || {};
             } else if (isPdf) {
-              // Извлечение для PDF
               const arrayBuffer = await file.arrayBuffer();
               const pdfDoc = await PDFDocument.load(arrayBuffer, { updateMetadata: false });
               metadata = {
@@ -81,7 +71,6 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
               };
             }
 
-            // Определяем доступные поля для выборочного удаления
             const availableFields = Object.keys(metadata).filter(key => metadata[key] !== undefined);
 
             return {
@@ -91,9 +80,9 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
               metadata,
               isCleaned: false,
               isProcessing: false,
-              selectedFieldsToRemove: availableFields, // По умолчанию выбираем всё для selective
+              selectedFieldsToRemove: availableFields,
             };
-          } catch (e) {
+          } catch {
             return {
               id: Math.random().toString(36).substring(7),
               file,
@@ -128,7 +117,6 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
     }));
   };
 
-  // 2. Логика очистки
   const cleanFile = async (result: FileResult): Promise<FileResult> => {
     if (result.error || result.type === 'other') {
       return { ...result, isProcessing: false };
@@ -139,22 +127,20 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
         const arrayBuffer = await result.file.arrayBuffer();
         
         if (mode === 'all') {
-          // Удаляем всё: создаем новый документ и копируем страницы (это стирает весь Info Dictionary)
           const sourcePdf = await PDFDocument.load(arrayBuffer);
           const newPdf = await PDFDocument.create();
           const copiedPages = await newPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
           copiedPages.forEach((page) => newPdf.addPage(page));
           const pdfBytes = await newPdf.save();
           
-          // ИСПРАВЛЕНО: убрали лишнее "const blob =" и присвоили значение ключу cleanedBlob
           return {
             ...result,
             isCleaned: true,
-            cleanedBlob: new Blob([pdfBytes as ArrayBuffer], { type: 'application/pdf' }),
+            // ИСПРАВЛЕНИЕ: используем .buffer для получения ArrayBuffer из Uint8Array
+            cleanedBlob: new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' }),
             isProcessing: false,
           };
         } else {
-          // Выборочное удаление
           const pdfDoc = await PDFDocument.load(arrayBuffer);
           const fieldsToRemove = result.selectedFieldsToRemove;
           
@@ -171,12 +157,12 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
           return {
             ...result,
             isCleaned: true,
-            cleanedBlob: new Blob([pdfBytes as ArrayBuffer], { type: 'application/pdf' }),
+            // ИСПРАВЛЕНИЕ: используем .buffer
+            cleanedBlob: new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' }),
             isProcessing: false,
           };
         }
       } else if (result.type === 'image') {
-        // Для изображений используем Canvas для гарантированного удаления ВСЕХ метаданных.
         const img = new Image();
         const url = URL.createObjectURL(result.file);
         
@@ -192,13 +178,11 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
         const ctx = canvas.getContext('2d');
         
         if (!ctx) throw new Error('Не удалось получить контекст canvas');
-        
         ctx.drawImage(img, 0, 0);
 
         const blob = await new Promise<Blob | null>(resolve => 
           canvas.toBlob(resolve, result.file.type || 'image/jpeg', 0.95)
         );
-
         URL.revokeObjectURL(url);
 
         if (!blob) throw new Error('Ошибка создания очищенного файла');
@@ -210,20 +194,22 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
           isProcessing: false,
         };
       }
-    } catch (error) {
+    } catch {
       return {
         ...result,
         isProcessing: false,
         error: 'Ошибка при очистке',
       };
     }
+    
+    // ИСПРАВЛЕНИЕ: гарантированный return для TS2366
+    return { ...result, isProcessing: false, error: 'Необработанный тип файла' };
   };
 
   const handleCleanAll = async () => {
     setIsProcessing(true);
     setResults(prev => prev.map(r => ({ ...r, isProcessing: true })));
 
-    // Обрабатываем последовательно, чтобы не вешать браузер
     for (let i = 0; i < results.length; i++) {
       const cleaned = await cleanFile(results[i]);
       setResults(prev => prev.map((r, idx) => (idx === i ? cleaned : r)));
@@ -247,9 +233,9 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
     URL.revokeObjectURL(url);
   };
 
-  // Helper to format metadata for display
-  const formatMetadata = (meta: Record<string, any>, type: 'image' | 'pdf') => {
-    if (Object.keys(meta).length === 0) return null;
+  // ИСПРАВЛЕНИЕ: добавлен тип 'other'
+  const formatMetadata = (meta: Record<string, any>, type: 'image' | 'pdf' | 'other') => {
+    if (type === 'other' || Object.keys(meta).length === 0) return null;
 
     if (type === 'pdf') {
       return (
@@ -265,7 +251,6 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
         </ul>
       );
     } else {
-      // Группировка метаданных изображения
       const groups: Record<string, string[]> = {
         '📷 Камера': [],
         '📍 Геолокация': [],
@@ -280,7 +265,6 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
       if (meta.Software || meta.Creator) groups['💻 ПО и настройки'].push(meta.Software || meta.Creator);
       if (meta.ImageWidth || meta.ImageHeight) groups['📐 Изображение'].push(`${meta.ImageWidth} x ${meta.ImageHeight}`);
 
-      // Добавляем остальные некатегоризированные поля
       Object.keys(meta).forEach(key => {
         if (!['Make', 'Model', 'latitude', 'longitude', 'DateTimeOriginal', 'CreateDate', 'Software', 'Creator', 'ImageWidth', 'ImageHeight'].includes(key)) {
            if (typeof meta[key] === 'string' || typeof meta[key] === 'number') {
@@ -316,30 +300,15 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6">
-      {/* Панель управления */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="mode"
-                value="all"
-                checked={mode === 'all'}
-                onChange={() => setMode('all')}
-                className="w-4 h-4 text-blue-600"
-              />
+              <input type="radio" name="mode" value="all" checked={mode === 'all'} onChange={() => setMode('all')} className="w-4 h-4 text-blue-600" />
               <span className="text-gray-700">Удалить всё (Рекомендуется)</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="mode"
-                value="selective"
-                checked={mode === 'selective'}
-                onChange={() => setMode('selective')}
-                className="w-4 h-4 text-blue-600"
-              />
+              <input type="radio" name="mode" value="selective" checked={mode === 'selective'} onChange={() => setMode('selective')} className="w-4 h-4 text-blue-600" />
               <span className="text-gray-700">Выбрать категории</span>
             </label>
           </div>
@@ -348,9 +317,7 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
             onClick={handleCleanAll}
             disabled={isProcessing}
             className={`px-6 py-3 rounded-lg font-semibold text-white transition-all ${
-              isProcessing 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-red-600 hover:bg-red-700 shadow-md hover:shadow-lg'
+              isProcessing ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 shadow-md hover:shadow-lg'
             }`}
           >
             {isProcessing ? '⏳ Очистка...' : '🧹 Очистить метаданные'}
@@ -359,12 +326,11 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
         
         {mode === 'selective' && (
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-            💡 <strong>Примечание:</strong> Для PDF применяется точечное удаление выбранных полей. Для изображений применяется полная перерисовка (Canvas), что гарантирует удаление <strong>всех</strong> скрытых данных, так как выборочное редактирование EXIF в браузере ненадежно и может повредить файл.
+            💡 <strong>Примечание:</strong> Для PDF применяется точечное удаление выбранных полей. Для изображений применяется полная перерисовка (Canvas), что гарантирует удаление <strong>всех</strong> скрытых данных.
           </div>
         )}
       </div>
 
-      {/* Результаты */}
       {results.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold text-gray-700">
@@ -392,7 +358,6 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
                         <p className="font-semibold text-gray-700 mb-2">Найденные метаданные:</p>
                         {formatMetadata(item.metadata, item.type)}
                         
-                        {/* Выборочное удаление (только если режим selective и есть метаданные) */}
                         {mode === 'selective' && item.type !== 'other' && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
                             <p className="font-semibold text-gray-700 mb-2">Удалить следующие поля:</p>
