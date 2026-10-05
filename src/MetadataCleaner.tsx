@@ -146,10 +146,11 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
           copiedPages.forEach((page) => newPdf.addPage(page));
           const pdfBytes = await newPdf.save();
           
+          // ИСПРАВЛЕНО: убрали лишнее "const blob =" и присвоили значение ключу cleanedBlob
           return {
             ...result,
             isCleaned: true,
-            const blob = new Blob([pdfBytes as ArrayBuffer], { type: 'application/pdf' });
+            cleanedBlob: new Blob([pdfBytes as ArrayBuffer], { type: 'application/pdf' }),
             isProcessing: false,
           };
         } else {
@@ -170,14 +171,12 @@ export default function MetadataCleaner({ files }: MetadataCleanerProps) {
           return {
             ...result,
             isCleaned: true,
-            cleanedBlob: new Blob([pdfBytes], { type: 'application/pdf' }),
+            cleanedBlob: new Blob([pdfBytes as ArrayBuffer], { type: 'application/pdf' }),
             isProcessing: false,
           };
         }
       } else if (result.type === 'image') {
         // Для изображений используем Canvas для гарантированного удаления ВСЕХ метаданных.
-        // Выборочное удаление для изображений в браузере крайне ненадежно без тяжелых библиотек,
-        // поэтому мы применяем Canvas, но предупреждаем пользователя в интерфейсе.
         const img = new Image();
         const url = URL.createObjectURL(result.file);
         
