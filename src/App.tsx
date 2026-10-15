@@ -16,6 +16,9 @@ import TextTools from './TextTools';
 import ImageTools from './ImageTools';
 import PdfTools from './PdfTools';
 import Archiver from './Archiver';
+// Импортируем DevBox компоненты с другими именами чтобы избежать конфликта
+import DevBoxHome from './devbox-module/DevBox';
+import DevBoxTool from './devbox-module/ToolPage';
 
 type Tool = 'compress' | 'metadata' | 'encrypt' | 'hash' | 'password' | 'checker' | 'passphrase' | 'text' | 'images' | 'pdf' | 'archive' | null;
 
@@ -49,7 +52,7 @@ const tools = [
   { 
     id: 'encrypt' as Tool, 
     path: '/encrypt', 
-    icon: '🔒', 
+    icon: '', 
     title: 'Шифрование файлов', 
     desc: 'Пароль + HTML-контейнер', 
     category: 'Безопасность',
@@ -133,7 +136,7 @@ const tools = [
   { 
     id: 'pdf' as Tool, 
     path: '/pdf-tools', 
-    icon: '📄', 
+    icon: '', 
     title: 'PDF инструменты', 
     desc: 'Объединить, разделить, конвертировать', 
     category: 'PDF',
@@ -289,6 +292,18 @@ function HomePage() {
           </div>
         ))}
 
+        {/* Кнопка DevBox */}
+        <div className="mt-12 p-8 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl text-white text-center shadow-lg">
+          <h3 className="text-2xl font-bold mb-3">🛠️ DevBox: Инструменты для разработчиков</h3>
+          <p className="mb-4 text-indigo-100">JSON, Base64, JWT, URL и другие утилиты для программистов</p>
+          <Link 
+            to="/devbox" 
+            className="inline-block px-6 py-3 bg-white text-indigo-700 font-bold rounded-lg hover:bg-gray-100 transition-colors shadow-md"
+          >
+            Перейти в DevBox →
+          </Link>
+        </div>
+
         <SEOContent />
       </main>
 
@@ -329,6 +344,9 @@ function App() {
         <Route path="/image-tools" element={<ToolPage toolId="images" />} />
         <Route path="/pdf-tools" element={<ToolPage toolId="pdf" />} />
         <Route path="/archive" element={<ToolPage toolId="archive" />} />
+        {/* Маршруты для DevBox */}
+        <Route path="/devbox" element={<DevBoxHome />} />
+        <Route path="/devbox/:toolId" element={<DevBoxTool />} />
       </Routes>
     </BrowserRouter>
   );

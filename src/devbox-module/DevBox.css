@@ -1,0 +1,466 @@
+.devbox-container * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.devbox-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f0f1a;
+    color: #e0e0e8;
+    line-height: 1.6;
+    padding: 40px 20px;
+}
+
+/* Шапка */
+.devbox-header {
+    text-align: center;
+    margin-bottom: 60px;
+}
+
+.devbox-header-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.devbox-logo {
+    font-size: 48px;
+    font-weight: 800;
+    color: #e0e0e8;
+}
+
+.devbox-logo span {
+    color: #4361ee;
+}
+
+.devbox-subtitle {
+    font-size: 18px;
+    color: #a0a0b8;
+    margin-top: 10px;
+}
+
+.devbox-description {
+    font-size: 15px;
+    color: #7a7a9a;
+    margin-top: 8px;
+}
+
+/* Секции */
+.devbox-section {
+    max-width: 1200px;
+    margin: 0 auto 50px;
+}
+
+.devbox-section-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: #e0e0e8;
+}
+
+/* Сетка карточек */
+.devbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* Карточка */
+.devbox-card {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid #2a2a40;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.devbox-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(67, 97, 238, 0.25);
+    border-color: #4361ee;
+}
+
+.devbox-card-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+}
+
+.devbox-card h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #e0e0e8;
+}
+
+.devbox-card p {
+    font-size: 14px;
+    color: #7a7a9a;
+}
+
+/* Модальное окно */
+.devbox-modal {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.devbox-modal-content {
+    background: #1a1a2e;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 1px solid #2a2a40;
+}
+
+.devbox-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    border-bottom: 1px solid #2a2a40;
+}
+
+.devbox-modal-header h2 {
+    font-size: 22px;
+    color: #e0e0e8;
+}
+
+.devbox-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #7a7a9a;
+    padding: 5px 10px;
+    border-radius: 6px;
+}
+
+.devbox-close-btn:hover {
+    background: #2a2a40;
+    color: #e0e0e8;
+}
+
+.devbox-modal-body {
+    padding: 30px;
+}
+
+/* Элементы форм */
+.devbox-container textarea,
+.devbox-container input,
+.devbox-container select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #2a2a40;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 15px;
+    transition: border-color 0.2s;
+    background: #12121e;
+    color: #e0e0e8;
+}
+
+.devbox-container textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+.devbox-container textarea:focus,
+.devbox-container input:focus,
+.devbox-container select:focus {
+    outline: none;
+    border-color: #4361ee;
+}
+
+.devbox-action-btn {
+    background: #4361ee;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    transition: background 0.2s;
+}
+
+.devbox-action-btn:hover {
+    background: #3651d4;
+}
+
+.devbox-action-btn.secondary {
+    background: #6c757d;
+}
+
+.devbox-action-btn.secondary:hover {
+    background: #5a6268;
+}
+
+.devbox-result-box {
+    background: #12121e;
+    border: 1px solid #2a2a40;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 300px;
+    overflow-y: auto;
+    color: #e0e0e8;
+}
+
+.devbox-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #e0e0e8;
+}
+
+.devbox-tool-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.devbox-color-preview {
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    margin: 15px 0;
+    border: 1px solid #2a2a40;
+}
+
+/* Чекбоксы */
+.devbox-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #e0e0e8;
+}
+
+.devbox-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* Описание инструментов */
+.devbox-tools-description {
+    max-width: 1200px;
+    margin: 80px auto 60px;
+    padding: 0 20px;
+}
+
+.devbox-description-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 30px;
+    margin-bottom: 50px;
+}
+
+.devbox-description-item {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 25px;
+    border: 1px solid #2a2a40;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.devbox-description-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(67, 97, 238, 0.2);
+}
+
+.devbox-desc-icon {
+    font-size: 32px;
+    margin-bottom: 15px;
+}
+
+.devbox-description-item h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e0e0e8;
+    margin-bottom: 10px;
+}
+
+.devbox-description-item p {
+    font-size: 14px;
+    color: #7a7a9a;
+    line-height: 1.6;
+}
+
+/* Блок приватности */
+.devbox-privacy-box {
+    background: linear-gradient(135deg, rgba(67, 97, 238, 0.1) 0%, rgba(67, 97, 238, 0.05) 100%);
+    border: 1px solid rgba(67, 97, 238, 0.3);
+    border-radius: 12px;
+    padding: 30px;
+    margin-top: 40px;
+}
+
+.devbox-privacy-icon {
+    font-size: 36px;
+    margin-bottom: 15px;
+}
+
+.devbox-privacy-box h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #e0e0e8;
+    margin-bottom: 12px;
+}
+
+.devbox-privacy-box p {
+    font-size: 14px;
+    color: #a0a0b8;
+    line-height: 1.7;
+}
+
+.devbox-privacy-box strong {
+    color: #4361ee;
+    font-weight: 600;
+}
+
+/* Кнопка возврата */
+.devbox-back-link {
+    text-align: center;
+    margin: 40px auto 20px;
+    padding: 20px;
+}
+
+.devbox-back-btn {
+    color: #4361ee;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 16px;
+    padding: 12px 24px;
+    border: 1px solid #4361ee;
+    border-radius: 8px;
+    transition: all 0.2s;
+    display: inline-block;
+}
+
+.devbox-back-btn:hover {
+    background: #4361ee;
+    color: white;
+    text-decoration: none;
+}
+
+/* Контент инструмента на отдельной странице */
+.devbox-tool-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Ссылка-карточка (для навигации по роутам) */
+a.devbox-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+a.devbox-card:hover {
+    text-decoration: none;
+}
+
+/* Боковая реклама */
+.devbox-page-layout {
+    display: grid;
+    grid-template-columns: 160px 1fr 160px;
+    gap: 20px;
+    max-width: 1520px;
+    margin: 0 auto;
+    align-items: start;
+}
+
+.devbox-ad-sidebar {
+    position: sticky;
+    top: 20px;
+}
+
+.devbox-ad-block {
+    width: 160px;
+    min-height: 600px;
+    margin: 0 auto;
+}
+
+.devbox-ad-placeholder {
+    width: 160px;
+    height: 600px;
+    background: #1a1a2e;
+    border: 1px dashed #2a2a40;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a4a6a;
+    font-size: 13px;
+    text-align: center;
+}
+
+.devbox-main-content {
+    min-width: 0;
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+    .devbox-page-layout {
+        grid-template-columns: 160px 1fr;
+    }
+    
+    .devbox-ad-right {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .devbox-page-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .devbox-ad-sidebar {
+        display: none;
+    }
+    
+    .devbox-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .devbox-logo {
+        font-size: 36px;
+    }
+    
+    .devbox-description-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .devbox-tools-description {
+        margin: 60px auto 40px;
+    }
+}
