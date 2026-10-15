@@ -17,7 +17,9 @@ import ImageTools from './ImageTools';
 import PdfTools from './PdfTools';
 import Archiver from './Archiver';
 // Импортируем DevBox компоненты с другими именами чтобы избежать конфликта
+// @ts-ignore
 import DevBoxHome from './devbox-module/DevBox';
+// @ts-ignore
 import DevBoxTool from './devbox-module/ToolPage';
 
 type Tool = 'compress' | 'metadata' | 'encrypt' | 'hash' | 'password' | 'checker' | 'passphrase' | 'text' | 'images' | 'pdf' | 'archive' | null;
