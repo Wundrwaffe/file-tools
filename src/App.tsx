@@ -8,7 +8,6 @@ import MetadataCleaner from './MetadataCleaner';
 import Encryptor from './Encryptor';
 import Hasher from './Hasher';
 import AdBlock from './AdBlock';
-import SEOContent from './SEOContent';
 import PasswordGenerator from './PasswordGenerator';
 import PasswordChecker from './PasswordChecker';
 import PassphraseGenerator from './PassphraseGenerator';
