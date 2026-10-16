@@ -305,7 +305,6 @@ function HomePage() {
           </Link>
         </div>
 
-        <SEOContent />
       </main>
 
       <footer className="bg-gray-800 text-gray-300 py-8 px-4 mt-auto">
